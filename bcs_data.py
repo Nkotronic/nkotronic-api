@@ -1,4 +1,8 @@
+# =================================================================
 # Fichier : bcs_data.py
+# Contient les faits initiaux pour la Base de Connaissances Statique (BCS)
+# VERSION MISE À JOUR AVEC RÈGLES D'AUTORITÉ N'KO
+# =================================================================
 
 BCS_INITIAL_FACTS = [
     # ----------------------------------------------------

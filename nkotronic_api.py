@@ -1,280 +1,387 @@
 # =================================================================
 # Fichier : nkotronic_api.py
-# Backend de l'application Nkotronic (API FastAPI)
+# Backend de l'application Nkotronic (API FastAPI) - COMPLET
 # =================================================================
 
 import os
 import json
 import re
 import uuid
+import time
+import asyncio
+from typing import Tuple, Optional, Dict, Any, List
+
+# --- Imports pour FastAPI, Pydantic et Configuration ---
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
 # --- Imports pour Qdrant et LLM ---
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import PointStruct
-from openai import OpenAI
-from bcs_data import BCS_INITIAL_FACTS # Import des faits critiques
+from openai import OpenAI, APIError
+
+# NOTE: Assurez-vous que bcs_data.py est disponible dans le dossier
+from bcs_data import BCS_INITIAL_FACTS
 
 # --- 1. CONFIGURATION ET CLÉS SECRÈTES ---
-load_dotenv() 
+load_dotenv()
 
 # Récupération des clés API (DOIVENT être définies dans votre fichier .env)
-QDRANT_URL = os.getenv("QDRANT_URL") 
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY") 
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 
-# Configuration des modèles (à adapter si vous n'utilisez pas OpenAI)
+# Configuration des modèles
 COLLECTION_NAME = "nkotronic_knowledge_base"
-EMBEDDING_MODEL = "text-embedding-ada-002" # Modèle de vectorisation (dim 1536)
-LLM_MODEL = "gpt-4o-mini" # Modèle conversationnel
+EMBEDDING_MODEL = "text-embedding-ada-002"  # Modèle de vectorisation (dim 1536)
+LLM_MODEL = "gpt-4o-mini"                   # Modèle conversationnel
+VECTOR_SIZE = 1536                          # Taille des vecteurs pour Qdrant
 
-# --- 2. INITIALISATION DES CLIENTS ---
+# --- 2. INITIALISATION DES CLIENTS GLOBALES ---
+QDRANT_CLIENT: Optional[QdrantClient] = None
+LLM_CLIENT: Optional[OpenAI] = None
+
 try:
-    QDRANT_CLIENT = QdrantClient(
-        url=QDRANT_URL,
-        api_key=QDRANT_API_KEY
-    )
-    LLM_CLIENT = OpenAI(api_key=LLM_API_KEY)
+    if QDRANT_URL and QDRANT_API_KEY:
+        QDRANT_CLIENT = QdrantClient(
+            url=QDRANT_URL,
+            api_key=QDRANT_API_KEY
+        )
+    else:
+        print("AVERTISSEMENT: Clés QDRANT manquantes (URL ou API_KEY). Le service RAG ne fonctionnera pas.")
+
+    if LLM_API_KEY:
+        LLM_CLIENT = OpenAI(api_key=LLM_API_KEY)
+    else:
+        print("AVERTISSEMENT: Clé LLM_API_KEY manquante. Le service LLM ne fonctionnera pas.")
+
 except Exception as e:
     print(f"ERREUR CRITIQUE: Échec de l'initialisation des clients Qdrant/LLM. Détail: {e}")
     QDRANT_CLIENT = None
     LLM_CLIENT = None
 
-# --- 3. PROMPT SYSTÈME (Le Cerveau de Nkotronic) ---
 
+# --- 3. PROMPT SYSTÈME (Le Cerveau de Nkotronic) ---
 PROMPT_SYSTEM = """
 Tu es Nkotronic, l'Analyste, l'Organisateur de la Mémoire et l'Autorité Linguistique du N'ko.
-Ton rôle est triple : enseigner le N'ko, corriger les erreurs historiques avec bienveillance et gérer la mémoire.
+Ton objectif est de répondre aux questions des utilisateurs en t'appuyant sur le CONTEXTE MÉMOIRE fourni (si disponible) et de gérer la mémoire selon les instructions ci-dessous.
 
----
-[INSTRUCTIONS ET RÈGLES DE COMPORTEMENT]
----
+Règles de sortie :
+1. Ton premier objectif est de fournir la réponse conversationnelle demandée par l'utilisateur.
+2. Si ta réponse nécessite l'ajout ou la mise à jour d'informations dans ta mémoire (si l'utilisateur t'apprend un nouveau concept ou te demande d'enregistrer une information), tu DOIS joindre un objet JSON à ta réponse.
+3. Le JSON doit être encadré par les balises <MEMOIRE> et </MEMOIRE>.
+4. Le JSON doit être un tableau d'objets (Liste[Dict]), chacun représentant un fait à insérer ou à mettre à jour.
+5. Champs JSON requis :
+   - "concept_identifie": (string) Le concept clair et concis (ex: "Nom_utilisateur", "Règle_grammaticale_Nko").
+   - "element_français": (string) La description détaillée du fait en français.
+   - "element_nko": (string, optionnel) La traduction ou l'équivalent en N'ko, si pertinent.
 
-Règle A. Extraction de Mémoire (Apprentissage Autonome) :
-Si le message de l'utilisateur est un ENSEIGNEMENT, tu dois générer une réponse conversationnelle suivie OBLIGATOIREMENT du JSON de mise à jour de la mémoire. Le JSON doit être formaté exactement comme l'objet 'memory_update' ci-dessous et doit être la dernière chose que tu génères.
+Exemple de sortie :
+Voici ma réponse... <MEMOIRE>[{"concept_identifie": "Couleur préférée de l'utilisateur", "element_français": "L'utilisateur préfère la couleur bleue."}]</MEMOIRE>
 
-Règle B. Correction d'Identité (Défense de la Langue) :
-Si l'utilisateur affirme que le N'ko est 'seulement un alphabet' ou qu'il utilise le N'ko de manière historiquement incorrecte, tu dois corriger en citant les faits de ta Base de Connaissances Statique (Langue Standard, Ancêtre Commun, Manuel ߒߞߏ ߞߊ߲ߜߍ).
-Ajoute OBLIGATOIREMENT les hyperliens directs suivants à la fin de ta correction :
-* [N'ko (langue) — Wikipédia](https://fr.wikipedia.org/wiki/N%27ko_(langue))
-* [ߒߞߏ ߞߊ߲ߜߍ ߞߎ߲߬ߝߟߐ - Solomana Kantè - Google Livres](https://books.google.fr/books/about/%DF%92%DF%9E%DF%8F_%DF%9E%DF%8A%DF%B2%DF%9C%DF%8D_%DF%9E%DF%8E%DF%B2%DF%AC%DF%9D%DF%9F%DF%90.html?id=Jl63swEACAAJ&redir_esc=y)
-Conclus la correction avec la proposition de contact : "Si vous souhaitez en discuter davantage, je peux proposer de contacter le créateur de Nkotronic."
+Message Utilisateur:
+"""
 
-Règle C. Correction d'Autorité (Nom de l'Auteur) :
-Si l'utilisateur utilise un nom pour l'inventeur qui n'est pas Fodé Solomana Kantè (ou l'une des quatre formes abrégées tolérées), tu dois corriger immédiatement. Le nom complet est **Fodé Solomana Kantè (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫)**.
 
-Règle D. Style de Référence (Unicité) :
-Le nom complet avec la transcription N'ko (Fodé Solomana Kantè (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫)) doit être inclus UNE SEULE fois dans la réponse. Les références ultérieures dans la même réponse utiliseront seulement "Fodé Solomana Kantè" ou "Kantè".
+# =================================================================
+# 4. FONCTIONS UTILITAIRES SYNCHRONES (Doivent être appelées via asyncio.to_thread)
+# =================================================================
 
-Règle E. Langue :
-Réponds toujours dans la langue de l'utilisateur (Français ou N'ko).
-
----
-[CONTEXTE RAG FOURNI PAR LA BASE DE DONNÉES]
-Les faits de mémoire pertinents pour cette requête seront insérés ici par le code Backend.
-
----
-[SCHÉMA JSON D'EXTRACTION]
-
-```json
-{
-  "memory_update": {
-    "intention_type": "Vocabulaire | Règle Grammaticale | Fait Culturel | Autre",
-    "texte_source_enseigne": "Le message exact de l'utilisateur.",
-    "resume_structuré": {
-      "concept_identifie": "Le concept principal (ex: ciel, salutations).",
-      "element_nko": "Le mot ou la phrase en écriture N'ko (Unicode).",
-      "element_français": "La traduction ou l'explication en français.",
-      "note_grammaticale": "Toute information supplémentaire (classe nominale, ton, source). [Laisser vide si non pertinent]"
-    }
-  }
-}
-```
---- FONCTIONS D'ASSISTANCE ---
-def separer_texte_et_json(llm_output: str) -> (str, str):
-    """ 
-    Recherche le bloc JSON de 'memory_update' (délimité par json) et le sépare du texte conversationnel.
-    """
-    # Utilisation d'une regex pour capturer le contenu JSON entre les délimiteurs
-    match = re.search(r"json\s*({.+})\s*```", llm_output, re.DOTALL)
-
-    if match:
-        json_data = match.group(1).strip()
-        # Supprimer le bloc JSON de la sortie pour obtenir la réponse conversationnelle propre
-        response_text = llm_output.replace(match.group(0), "").strip()
-        return response_text, json_data
+def separer_texte_et_json(llm_output: str) -> Tuple[str, Optional[List[Dict[str, Any]]]]:
+    """Extrait le JSON de mémoire et retourne le texte de réponse et l'objet JSON."""
+    json_data = None
+    # Expression régulière pour trouver le JSON entre les balises <MEMOIRE>...</MEMOIRE>
+    json_match = re.search(r"<MEMOIRE>(.*?)</MEMOIRE>", llm_output, re.DOTALL)
+    
+    if json_match:
+        json_string = json_match.group(1).strip()
+        # Supprimer le JSON et ses balises du texte final
+        response_text = llm_output.replace(json_match.group(0), "").strip()
+        try:
+            # Tente de parser le JSON
+            parsed_data = json.loads(json_string)
+            if isinstance(parsed_data, list):
+                json_data = parsed_data
+            else:
+                print("AVERTISSEMENT: Le JSON extrait n'est pas un tableau (List).")
+        except json.JSONDecodeError as e:
+            print(f"ERREUR: Échec du décodage JSON de la mémoire. Erreur: {e}")
     else:
-        return llm_output, None
+        response_text = llm_output
+        
+    return response_text, json_data
 
 
-def mettre_a_jour_memoire(json_data_string: str) -> bool:
-    """ 
-    Parse le JSON généré par le LLM et stocke la nouvelle donnée dans Qdrant.
+def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
     """
-    if not QDRANT_CLIENT or not LLM_CLIENT: 
-        print("Mise à jour de mémoire impossible: Clients LLM/Qdrant non initialisés.") 
-        return False
-
-    try:
-        data = json.loads(json_data_string)
-        memory_update = data.get("memory_update", {})
-        structured_data = memory_update.get("resume_structuré", {})
-        
-        if not structured_data or not structured_data.get("element_français"):
-            return False 
-        
-        # 1. CONSTRUIRE LE TEXTE À VECTORISER (pour une recherche future)
-        text_to_embed = (
-            structured_data.get("element_nko", "") + " " +
-            structured_data.get("element_français", "") + " " +
-            structured_data.get("note_grammaticale", "")
-        ).strip()
-        
-        if not text_to_embed:
-            return False
-
-        # 2. VECTORISER (Utilisation de l'API LLM pour l'embedding)
-        response = LLM_CLIENT.embeddings.create(input=[text_to_embed], model=EMBEDDING_MODEL)
-        new_vector = response.data[0].embedding
-
-        # 3. INJECTER DANS QDRANT
-        QDRANT_CLIENT.upsert(
-            collection_name=COLLECTION_NAME,
-            wait=True,
-            points=[
-                PointStruct(
-                    id=str(uuid.uuid4()), # Utilisation d'un UUID unique pour l'ID
-                    vector=new_vector,
-                    payload=structured_data
-                )
-            ]
-        )
-        return True
-        
-    except json.JSONDecodeError:
-        print("ERREUR: Le LLM a généré un JSON invalide.")
-        return False
-    except Exception as e:
-        print(f"ERREUR D'INJECTION QDRANT: {e}")
-        return False
-        
-        
-# --- LOGIQUE D'INITIALISATION ET INJECTION B.C.S. ---
-def connexion_initiale_qdrant():
-    """ 
-    Crée la collection Qdrant si elle n'existe pas et injecte la B.C.S. 
+    Crée les embeddings et insère les nouveaux points de mémoire dans Qdrant.
+    Exécuté en tâche de fond.
     """
-    if not QDRANT_CLIENT or not LLM_CLIENT: 
+    if not QDRANT_CLIENT or not LLM_CLIENT:
+        print("Mise à jour de mémoire ignorée: Clients non disponibles.")
+        return
+
+    texts_to_embed = []
+    
+    # 1. Préparation des textes et nettoyage
+    for fact in json_data:
+        if 'concept_identifie' in fact and 'element_français' in fact:
+            # Créer une chaîne unique et complète pour la vectorisation
+            text = f"{fact['concept_identifie']} : {fact['element_français']} {fact.get('element_nko', '')}"
+            texts_to_embed.append(text)
+        else:
+            print("AVERTISSEMENT: Fait ignoré car il manque 'concept_identifie' ou 'element_français'.")
+
+    if not texts_to_embed:
+        print("Mise à jour de mémoire: Aucun fait valide à insérer.")
         return
 
     try:
-        collection_info = QDRANT_CLIENT.get_collection(collection_name=COLLECTION_NAME)
-        # Vérifie si la collection existe et si elle est non-vide (pour éviter une réinjection)
-        if collection_info.points_count > 0:
-            print(f"--- La collection '{COLLECTION_NAME}' existe et contient déjà {collection_info.points_count} points. Injection B.C.S. ignorée. ---")
+        # 2. Vectorisation en lot
+        response = LLM_CLIENT.embeddings.create(input=texts_to_embed, model=EMBEDDING_MODEL)
+        
+        points_to_insert = []
+        for i, fact in enumerate(json_data):
+            vector = response.data[i].embedding
+            # Utiliser le payload original nettoyé
+            points_to_insert.append(
+                models.PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector=vector,
+                    payload=fact
+                )
+            )
+
+        # 3. Insertion dans Qdrant
+        if points_to_insert:
+            QDRANT_CLIENT.upsert(
+                collection_name=COLLECTION_NAME,
+                wait=True, # Attendre la confirmation de l'insertion
+                points=points_to_insert
+            )
+            print(f"--- {len(points_to_insert)} NOUVEAUX FAITS DE MÉMOIRE INJECTÉS AVEC SUCCÈS. ---")
+
+    except Exception as e:
+        print(f"ERREUR CRITIQUE lors de la mise à jour de la mémoire Qdrant: {e}")
+
+
+def _connexion_initiale_qdrant_sync(max_retries=3):
+    """
+    Logique synchrone de connexion et d'injection BCS (Base de Connaissances Statique).
+    """
+    if not QDRANT_CLIENT or not LLM_CLIENT:
+        return
+
+    for attempt in range(max_retries):
+        try:
+            # --- 1. Vérification de la collection ---
+            collection_exists = False
+            try:
+                collection_info = QDRANT_CLIENT.get_collection(collection_name=COLLECTION_NAME)
+                if collection_info.points_count > 0:
+                    print(f"--- La collection '{COLLECTION_NAME}' existe et contient déjà {collection_info.points_count} points. Injection B.C.S. ignorée. ---")
+                    return
+                collection_exists = True # La collection existe mais est vide
+            except Exception:
+                pass # La collection n'existe pas, on continue pour la création
+
+            # --- 2. Création/Recréation de la collection ---
+            if not collection_exists or collection_info.points_count == 0:
+                QDRANT_CLIENT.recreate_collection(
+                    collection_name=COLLECTION_NAME,
+                    vectors_config=models.VectorParams(size=VECTOR_SIZE, distance=models.Distance.COSINE),
+                    on_disk_payload=True
+                )
+                print(f"--- Collection '{COLLECTION_NAME}' créée. Démarrage de l'injection B.C.S. ---")
+
+            # --- 3. Injection des points ---
+            texts_to_embed = [
+                f"{fact['concept_identifie']} : {fact['element_français']} {fact.get('element_nko', '')}"
+                for fact in BCS_INITIAL_FACTS
+            ]
+
+            # Vectorisation en lot
+            response = LLM_CLIENT.embeddings.create(input=texts_to_embed, model=EMBEDDING_MODEL)
+            
+            points_to_insert = []
+            for i, fact in enumerate(BCS_INITIAL_FACTS):
+                vector = response.data[i].embedding
+                points_to_insert.append(
+                    models.PointStruct(
+                        id=str(uuid.uuid4()),
+                        vector=vector,
+                        payload=fact
+                    )
+                )
+
+            if points_to_insert:
+                QDRANT_CLIENT.upsert(
+                    collection_name=COLLECTION_NAME,
+                    wait=True,
+                    points=points_to_insert
+                )
+                print(f"--- {len(points_to_insert)} FAITS DE LA B.C.S. INJECTÉS AVEC SUCCÈS. ---")
             return
 
-    except Exception:
-        # La collection n'existe pas ou erreur de connexion, on la recrée
-        QDRANT_CLIENT.recreate_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=models.VectorParams(size=1536, distance=models.Distance.COSINE),
-            on_disk_payload=True
-        )
-        print(f"--- Collection '{COLLECTION_NAME}' créée. Démarrage de l'injection B.C.S. ---")
-
-    points_to_insert = []
-    for i, fact in enumerate(BCS_INITIAL_FACTS):
-        # 1. Préparer le texte à vectoriser
-        text_to_embed = f"{fact['concept_identifie']} : {fact['element_français']} {fact['element_nko']}"
-        
-        # 2. Vectoriser le texte
-        response = LLM_CLIENT.embeddings.create(input=[text_to_embed], model=EMBEDDING_MODEL)
-        vector = response.data[0].embedding
-        
-        # 3. Créer le Point
-        points_to_insert.append(
-            models.PointStruct(
-                id=str(uuid.uuid4()),
-                vector=vector,
-                payload=fact
-            )
-        )
-        
-    # 4. Injecter en masse dans Qdrant
-    if points_to_insert:
-        QDRANT_CLIENT.upsert(
-            collection_name=COLLECTION_NAME,
-            wait=True,
-            points=points_to_insert
-        )
-        print(f"--- {len(points_to_insert)} FAITS DE LA B.C.S. INJECTÉS AVEC SUCCÈS. ---")
+        except Exception as e:
+            print(f"Erreur à la tentative {attempt + 1}/{max_retries} lors de l'initialisation Qdrant: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+            else:
+                print("Échec de l'initialisation Qdrant après plusieurs tentatives.")
+                return
 
 
 # =================================================================
-# 4. POINT DE TERMINAISON PRINCIPAL DE L'API (FastAPI)
+# 5. INITIALISATION ASYNCHRONE DE LA MÉMOIRE
 # =================================================================
-app = FastAPI()
 
-# Modèles pour l'API
-class ChatRequest(BaseModel): 
+async def connexion_initiale_qdrant_async(max_retries=3):
+    """
+    Lance la connexion et l'injection Qdrant dans un thread séparé au démarrage.
+    """
+    if QDRANT_CLIENT and LLM_CLIENT:
+        await asyncio.to_thread(_connexion_initiale_qdrant_sync, max_retries)
+    else:
+        print("Initialisation Qdrant ignorée: Clients non disponibles.")
+
+
+# =================================================================
+# 6. DÉCLARATION DE L'APPLICATION FASTAPI ET MIDDLEWARE
+# =================================================================
+
+app = FastAPI(
+    title="Nkotronic Backend API",
+    description="API pour le service RAG (Retrieval-Augmented Generation) N'ko.",
+    version="1.0.0",
+)
+
+# --- Configuration CORS (ESSENTIEL pour le Frontend React) ---
+# Ceci permet à un frontend (ex: http://localhost:3000) d'accéder à cette API.
+origins = [
+    "http://localhost",
+    "http://localhost:3000", # Port typique de React Dev Server
+    "http://localhost:8080", # Autres serveurs de dev
+    "*", # A REMPLACER par une liste spécifique d'origines en production
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Modèles de données pour les endpoints
+class ChatRequest(BaseModel):
     message: str
 
-class ChatResponse(BaseModel): 
+class ChatResponse(BaseModel):
     response_text: str
 
-@app.post("/chat", response_model=ChatResponse) 
-def gerer_requete_chat(request: ChatRequest): 
-    if not LLM_CLIENT or not QDRANT_CLIENT: 
-        raise HTTPException(status_code=503, detail="Service Nkotronic non initialisé. Clés API manquantes ou invalides.")
 
+# =================================================================
+# 7. POINTS DE TERMINAISON (ENDPOINTS)
+# =================================================================
+
+@app.get("/health")
+def health_check():
+    """Vérification de l'état de l'API."""
+    status = {
+        "api_status": "OK",
+        "qdrant_ready": QDRANT_CLIENT is not None,
+        "llm_ready": LLM_CLIENT is not None,
+    }
+    return status
+
+
+@app.post("/chat", response_model=ChatResponse)
+async def gerer_requete_chat(request: ChatRequest):
+    """
+    Point de terminaison asynchrone pour gérer les requêtes de chat, effectuer le RAG et mettre à jour la mémoire.
+    """
+    if not LLM_CLIENT:
+        raise HTTPException(status_code=503, detail="Service LLM non initialisé. Clé API manquante ou invalide.")
+
+    rag_enabled = QDRANT_CLIENT is not None
     user_message = request.message
+    contexte_rag = "\nCONTEXTE MÉMOIRE: (RAG DÉSACTIVÉ)\n"
 
     # --- A. RAG (Retrieval-Augmented Generation) ---
+    if rag_enabled:
+        try:
+            # 1. Vectorisation du message utilisateur (ASYNCHRONE via to_thread)
+            user_vector_response = await asyncio.to_thread(
+                LLM_CLIENT.embeddings.create,
+                input=[user_message],
+                model=EMBEDDING_MODEL
+            )
+            user_vector = user_vector_response.data[0].embedding
 
-    # 1. Vectorisation du message utilisateur
-    user_vector = LLM_CLIENT.embeddings.create(input=[user_message], model=EMBEDDING_MODEL).data[0].embedding
+            # 2. Recherche de contexte pertinent (ASYNCHRONE via to_thread)
+            resultats_rag = await asyncio.to_thread(
+                QDRANT_CLIENT.search,
+                collection_name=COLLECTION_NAME,
+                query_vector=user_vector,
+                limit=5
+            )
 
-    # 2. Recherche de contexte pertinent
-    resultats_rag = QDRANT_CLIENT.search(
-        collection_name=COLLECTION_NAME,
-        query_vector=user_vector,
-        limit=5 # Récupère les 5 faits les plus pertinents
-    )
+            # 3. Construction du contexte RAG
+            contexte_rag = "\nCONTEXTE MÉMOIRE:\n"
+            for i, point in enumerate(resultats_rag):
+                element_fr = point.payload.get('element_français', 'Information N/A')
+                element_nko = point.payload.get('element_nko', '')
+                concept = point.payload.get('concept_identifie', 'N/A')
 
-    # 3. Construction du contexte RAG pour le LLM
-    contexte_rag = "CONTEXTE MÉMOIRE:\n"
-    for point in resultats_rag:
-        # Utiliser l'élément français et le concept du payload pour le contexte
-        contexte_rag += f"- {point.payload.get('element_français', 'Information N/A')} (Concept: {point.payload.get('concept_identifie', 'N/A')})\n"
-        
+                # Ne pas inclure le score, pour garder le prompt LLM propre
+                contexte_rag += f"- Fait {i+1} - {concept}: {element_fr} ({element_nko})\n"
+
+        except Exception as e:
+            print(f"ERREUR RAG lors de la recherche Qdrant/Embedding: {e}")
+            contexte_rag = "\nCONTEXTE MÉMOIRE: (ERREUR RAG)\n"
+
+
     # --- B. Exécution du LLM ---
-
     prompt_final = PROMPT_SYSTEM + contexte_rag + f"\n\nMessage Utilisateur : {user_message}"
 
-    # Appel à l'API du LLM
-    llm_completion = LLM_CLIENT.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[{"role": "system", "content": prompt_final}]
-    )
-    llm_output = llm_completion.choices[0].message.content
+    try:
+        # Appel à l'API du LLM (ASYNCHRONE via to_thread)
+        llm_completion = await asyncio.to_thread(
+            LLM_CLIENT.chat.completions.create,
+            model=LLM_MODEL,
+            messages=[{"role": "system", "content": prompt_final}]
+        )
+        llm_output = llm_completion.choices[0].message.content
+    except APIError as api_err:
+        raise HTTPException(status_code=500, detail=f"Erreur de l'API LLM: {api_err.response.status_code} - {api_err.response.text}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur interne lors de l'appel LLM: {e}")
+
 
     # --- C. Post-Traitement, Séparation et Mise à Jour (D) ---
-
     response_text, json_data = separer_texte_et_json(llm_output)
 
-    if json_data:
-        mettre_a_jour_memoire(json_data) # Mise à jour asynchrone
+    if json_data and rag_enabled:
+        # Exécution de la mise à jour de mémoire en arrière-plan (ASYNCHRONE)
+        asyncio.create_task(asyncio.to_thread(mettre_a_jour_memoire, json_data))
+    elif json_data:
+        print("AVERTISSEMENT: JSON de mémoire généré mais non traité car Qdrant est désactivé.")
 
     # --- E. Réponse Finale ---
     return ChatResponse(response_text=response_text)
-    
-# --- 5. Tâche de Démarrage ---
-@app.on_event("startup") 
+
+
+# --- 8. Tâche de Démarrage ---
+@app.on_event("startup")
 async def startup_event():
-    """ 
-    S'exécute au démarrage de l'application pour garantir que la B.C.S. est en place. 
     """
-    connexion_initiale_qdrant()
+    S'exécute au démarrage de l'application pour garantir que la B.C.S. est en place.
+    """
+    await connexion_initiale_qdrant_async()
+
+# =================================================================
+# FIN DU FICHIER
+# =================================================================
