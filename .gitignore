@@ -1,0 +1,11 @@
+# Fichier .gitignore
+# Exclut les fichiers secrets et les dossiers générés
+
+# Fichiers secrets
+.env
+
+# Dossiers et fichiers Python typiques
+__pycache__/
+*.pyc
+.pytest_cache
+venv/

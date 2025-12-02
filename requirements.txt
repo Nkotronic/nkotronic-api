@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+qdrant-client
+pydantic
+openai # Ou 'anthropic' ou le client de votre LLM
+python-dotenv # Pour gérer les clés secrètes (API Keys)
