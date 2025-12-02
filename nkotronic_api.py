@@ -1,6 +1,7 @@
 # =================================================================
 # Fichier : nkotronic_api.py
-# Backend de l'application Nkotronic (API FastAPI) - COMPLET
+# Backend de l'application Nkotronic (API FastAPI) - VERSION CORRIGÉE
+# Logique: Assurer la priorité de la mémoire utilisateur sur la connaissance interne (RAG).
 # =================================================================
 
 import os
@@ -35,9 +36,9 @@ LLM_API_KEY = os.getenv("LLM_API_KEY")
 
 # Configuration des modèles
 COLLECTION_NAME = "nkotronic_knowledge_base"
-EMBEDDING_MODEL = "text-embedding-ada-002"  # Modèle de vectorisation (dim 1536)
-LLM_MODEL = "gpt-4o-mini"                   # Modèle conversationnel
-VECTOR_SIZE = 1536                          # Taille des vecteurs pour Qdrant
+EMBEDDING_MODEL = "text-embedding-ada-002"      # Modèle de vectorisation (dim 1536)
+LLM_MODEL = "gpt-4o-mini"                       # Modèle conversationnel
+VECTOR_SIZE = 1536                              # Taille des vecteurs pour Qdrant
 
 # --- 2. INITIALISATION DES CLIENTS GLOBALES ---
 QDRANT_CLIENT: Optional[QdrantClient] = None
@@ -64,9 +65,13 @@ except Exception as e:
 
 
 # --- 3. PROMPT SYSTÈME (Le Cerveau de Nkotronic) ---
+# MODIFICATION CRITIQUE : La règle de priorité est ajoutée ici pour le RAG.
 PROMPT_SYSTEM = """
 Tu es Nkotronic, l'Analyste, l'Organisateur de la Mémoire et l'Autorité Linguistique du N'ko.
-Ton objectif est de répondre aux questions des utilisateurs en t'appuyant sur le CONTEXTE MÉMOIRE fourni (si disponible) et de gérer la mémoire selon les instructions ci-dessous.
+Ton objectif est de répondre aux questions des utilisateurs en t'appuyant sur le CONTEXTE MÉMOIRE RAG fourni (si disponible) et de gérer la mémoire selon les instructions ci-dessous.
+
+RÈGLE DE PRIORITÉ ABSOLUE:
+Si le CONTEXTE MÉMOIRE RAG contient une information (ex: une traduction) qui semble contredire ta connaissance interne, TU DOIS OBLIGATOIREMENT ET EXCLUSIVEMENT utiliser l'information du CONTEXTE MÉMOIRE RAG car elle représente la mémoire utilisateur la plus récente et la plus fiable.
 
 Règles de sortie :
 1. Ton premier objectif est de fournir la réponse conversationnelle demandée par l'utilisateur.
@@ -74,9 +79,9 @@ Règles de sortie :
 3. Le JSON doit être encadré par les balises <MEMOIRE> et </MEMOIRE>.
 4. Le JSON doit être un tableau d'objets (Liste[Dict]), chacun représentant un fait à insérer ou à mettre à jour.
 5. Champs JSON requis :
-   - "concept_identifie": (string) Le concept clair et concis (ex: "Nom_utilisateur", "Règle_grammaticale_Nko").
-   - "element_français": (string) La description détaillée du fait en français.
-   - "element_nko": (string, optionnel) La traduction ou l'équivalent en N'ko, si pertinent.
+    - "concept_identifie": (string) Le concept clair et concis (ex: "Nom_utilisateur", "Règle_grammaticale_Nko").
+    - "element_français": (string) La description détaillée du fait en français.
+    - "element_nko": (string, optionnel) La traduction ou l'équivalent en N'ko, si pertinent.
 
 Exemple de sortie :
 Voici ma réponse... <MEMOIRE>[{"concept_identifie": "Couleur préférée de l'utilisateur", "element_français": "L'utilisateur préfère la couleur bleue."}]</MEMOIRE>
@@ -92,15 +97,12 @@ Message Utilisateur:
 def separer_texte_et_json(llm_output: str) -> Tuple[str, Optional[List[Dict[str, Any]]]]:
     """Extrait le JSON de mémoire et retourne le texte de réponse et l'objet JSON."""
     json_data = None
-    # Expression régulière pour trouver le JSON entre les balises <MEMOIRE>...</MEMOIRE>
     json_match = re.search(r"<MEMOIRE>(.*?)</MEMOIRE>", llm_output, re.DOTALL)
     
     if json_match:
         json_string = json_match.group(1).strip()
-        # Supprimer le JSON et ses balises du texte final
         response_text = llm_output.replace(json_match.group(0), "").strip()
         try:
-            # Tente de parser le JSON
             parsed_data = json.loads(json_string)
             if isinstance(parsed_data, list):
                 json_data = parsed_data
@@ -125,10 +127,8 @@ def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
 
     texts_to_embed = []
     
-    # 1. Préparation des textes et nettoyage
     for fact in json_data:
         if 'concept_identifie' in fact and 'element_français' in fact:
-            # Créer une chaîne unique et complète pour la vectorisation
             text = f"{fact['concept_identifie']} : {fact['element_français']} {fact.get('element_nko', '')}"
             texts_to_embed.append(text)
         else:
@@ -139,13 +139,11 @@ def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
         return
 
     try:
-        # 2. Vectorisation en lot
         response = LLM_CLIENT.embeddings.create(input=texts_to_embed, model=EMBEDDING_MODEL)
         
         points_to_insert = []
         for i, fact in enumerate(json_data):
             vector = response.data[i].embedding
-            # Utiliser le payload original nettoyé
             points_to_insert.append(
                 models.PointStruct(
                     id=str(uuid.uuid4()),
@@ -154,11 +152,10 @@ def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
                 )
             )
 
-        # 3. Insertion dans Qdrant
         if points_to_insert:
             QDRANT_CLIENT.upsert(
                 collection_name=COLLECTION_NAME,
-                wait=True, # Attendre la confirmation de l'insertion
+                wait=True,
                 points=points_to_insert
             )
             print(f"--- {len(points_to_insert)} NOUVEAUX FAITS DE MÉMOIRE INJECTÉS AVEC SUCCÈS. ---")
@@ -170,24 +167,25 @@ def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
 def _connexion_initiale_qdrant_sync(max_retries=3):
     """
     Logique synchrone de connexion et d'injection BCS (Base de Connaissances Statique).
+    Crée la collection seulement si elle n'existe pas ou est vide.
     """
     if not QDRANT_CLIENT or not LLM_CLIENT:
         return
 
     for attempt in range(max_retries):
         try:
-            # --- 1. Vérification de la collection ---
+            # --- 1. Vérification de la collection (Logique standard) ---
             collection_exists = False
             try:
                 collection_info = QDRANT_CLIENT.get_collection(collection_name=COLLECTION_NAME)
                 if collection_info.points_count > 0:
                     print(f"--- La collection '{COLLECTION_NAME}' existe et contient déjà {collection_info.points_count} points. Injection B.C.S. ignorée. ---")
-                    return
+                    return # Collection déjà initialisée, on s'arrête là.
                 collection_exists = True # La collection existe mais est vide
             except Exception:
                 pass # La collection n'existe pas, on continue pour la création
 
-            # --- 2. Création/Recréation de la collection ---
+            # --- 2. Création de la collection ---
             if not collection_exists or collection_info.points_count == 0:
                 QDRANT_CLIENT.recreate_collection(
                     collection_name=COLLECTION_NAME,
@@ -223,7 +221,7 @@ def _connexion_initiale_qdrant_sync(max_retries=3):
                     points=points_to_insert
                 )
                 print(f"--- {len(points_to_insert)} FAITS DE LA B.C.S. INJECTÉS AVEC SUCCÈS. ---")
-            return
+                return
 
         except Exception as e:
             print(f"Erreur à la tentative {attempt + 1}/{max_retries} lors de l'initialisation Qdrant: {e}")
@@ -259,12 +257,11 @@ app = FastAPI(
 )
 
 # --- Configuration CORS (ESSENTIEL pour le Frontend React) ---
-# Ceci permet à un frontend (ex: http://localhost:3000) d'accéder à cette API.
 origins = [
     "http://localhost",
-    "http://localhost:3000", # Port typique de React Dev Server
-    "http://localhost:8080", # Autres serveurs de dev
-    "*", # A REMPLACER par une liste spécifique d'origines en production
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "*", 
 ]
 
 app.add_middleware(
@@ -278,6 +275,8 @@ app.add_middleware(
 # Modèles de données pour les endpoints
 class ChatRequest(BaseModel):
     message: str
+    # Le frontend doit s'assurer que l'historique de chat est géré ici
+    # pour que l'IA ait le contexte de la conversation. (Non modifiable ici)
 
 class ChatResponse(BaseModel):
     response_text: str
@@ -308,7 +307,9 @@ async def gerer_requete_chat(request: ChatRequest):
 
     rag_enabled = QDRANT_CLIENT is not None
     user_message = request.message
-    contexte_rag = "\nCONTEXTE MÉMOIRE: (RAG DÉSACTIVÉ)\n"
+    
+    # Initialisation d'un contexte par défaut, même si le RAG est désactivé
+    contexte_rag = "\n\nCONTEXTE MÉMOIRE RAG:\n[Aucun contexte pertinent trouvé dans la mémoire utilisateur ou dans la base de connaissances statique. Utiliser la connaissance interne.]\n\n"
 
     # --- A. RAG (Retrieval-Augmented Generation) ---
     if rag_enabled:
@@ -322,30 +323,37 @@ async def gerer_requete_chat(request: ChatRequest):
             user_vector = user_vector_response.data[0].embedding
 
             # 2. Recherche de contexte pertinent (ASYNCHRONE via to_thread)
+            # Augmentation de la limite à 8 pour garantir la récupération des faits récents.
             resultats_rag = await asyncio.to_thread(
                 QDRANT_CLIENT.search,
                 collection_name=COLLECTION_NAME,
                 query_vector=user_vector,
-                limit=5
+                limit=8 # Augmentation de la limite pour une meilleure couverture
             )
 
-            # 3. Construction du contexte RAG
-            contexte_rag = "\nCONTEXTE MÉMOIRE:\n"
-            for i, point in enumerate(resultats_rag):
-                element_fr = point.payload.get('element_français', 'Information N/A')
-                element_nko = point.payload.get('element_nko', '')
-                concept = point.payload.get('concept_identifie', 'N/A')
-
-                # Ne pas inclure le score, pour garder le prompt LLM propre
-                contexte_rag += f"- Fait {i+1} - {concept}: {element_fr} ({element_nko})\n"
+            # 3. Construction du contexte RAG (formaté pour la priorité)
+            if resultats_rag:
+                contexte_rag = "\n\nCONTEXTE MÉMOIRE RAG (PRIORITÉ ABSOLUE):\n"
+                for i, point in enumerate(resultats_rag):
+                    # Note: Utiliser le score de similarité (point.score) ici est une bonne pratique.
+                    element_fr = point.payload.get('element_français', 'Information N/A')
+                    element_nko = point.payload.get('element_nko', '')
+                    concept = point.payload.get('concept_identifie', 'N/A')
+                    
+                    # Formatage plus clair pour le LLM
+                    contexte_rag += f"FACT {i+1} (Score: {point.score:.2f}) - {concept}: {element_fr} | N'ko: {element_nko}\n"
+                contexte_rag += "\n" # Ajout d'une ligne pour séparer clairement la section
 
         except Exception as e:
             print(f"ERREUR RAG lors de la recherche Qdrant/Embedding: {e}")
-            contexte_rag = "\nCONTEXTE MÉMOIRE: (ERREUR RAG)\n"
+            contexte_rag = "\n\nCONTEXTE MÉMOIRE RAG (ERREUR RAG): [Utiliser uniquement la connaissance interne]\n\n"
 
 
     # --- B. Exécution du LLM ---
-    prompt_final = PROMPT_SYSTEM + contexte_rag + f"\n\nMessage Utilisateur : {user_message}"
+    # CONCATÉNATION DU PROMPT FINAL: Le RAG est maintenant inséré AVANT le message utilisateur,
+    # mais après le PROMPT_SYSTEM qui contient la règle de priorité absolue.
+    
+    prompt_final = PROMPT_SYSTEM + contexte_rag + f"Message Utilisateur : {user_message}"
 
     try:
         # Appel à l'API du LLM (ASYNCHRONE via to_thread)
