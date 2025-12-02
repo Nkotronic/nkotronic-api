@@ -1,6 +1,6 @@
 # =================================================================
 # Fichier : nkotronic_api.py
-# Backend de l'application Nkotronic (API FastAPI) - VERSION CORRIGÉE
+# Backend de l'application Nkotronic (API FastAPI) - VERSION COMPATIBLE V1.16.1 AVEC search_batch
 # Logique: Assurer la priorité de la mémoire utilisateur sur la connaissance interne (RAG).
 # =================================================================
 
@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 
 # --- Imports pour Qdrant et LLM ---
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import PointStruct
+from qdrant_client.models import PointStruct, SearchRequest # Ajout de SearchRequest
 from openai import OpenAI, APIError
 
 # NOTE: Assurez-vous que bcs_data.py est disponible dans le dossier
@@ -36,9 +36,9 @@ LLM_API_KEY = os.getenv("LLM_API_KEY")
 
 # Configuration des modèles
 COLLECTION_NAME = "nkotronic_knowledge_base"
-EMBEDDING_MODEL = "text-embedding-ada-002"      # Modèle de vectorisation (dim 1536)
-LLM_MODEL = "gpt-4o-mini"                       # Modèle conversationnel
-VECTOR_SIZE = 1536                              # Taille des vecteurs pour Qdrant
+EMBEDDING_MODEL = "text-embedding-ada-002"       # Modèle de vectorisation (dim 1536)
+LLM_MODEL = "gpt-4o-mini"                        # Modèle conversationnel
+VECTOR_SIZE = 1536                               # Taille des vecteurs pour Qdrant
 
 # --- 2. INITIALISATION DES CLIENTS GLOBALES ---
 QDRANT_CLIENT: Optional[QdrantClient] = None
@@ -65,7 +65,6 @@ except Exception as e:
 
 
 # --- 3. PROMPT SYSTÈME (Le Cerveau de Nkotronic) ---
-# MODIFICATION CRITIQUE : La règle de priorité est ajoutée ici pour le RAG.
 PROMPT_SYSTEM = """
 Tu es Nkotronic, l'Analyste, l'Organisateur de la Mémoire et l'Autorité Linguistique du N'ko.
 Ton objectif est de répondre aux questions des utilisateurs en t'appuyant sur le CONTEXTE MÉMOIRE RAG fourni (si disponible) et de gérer la mémoire selon les instructions ci-dessous.
@@ -119,7 +118,7 @@ def separer_texte_et_json(llm_output: str) -> Tuple[str, Optional[List[Dict[str,
 def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
     """
     Crée les embeddings et insère les nouveaux points de mémoire dans Qdrant.
-    Exécuté en tâche de fond.
+    Exécuté en tâche de fond (thread bloquant).
     """
     if not QDRANT_CLIENT or not LLM_CLIENT:
         print("Mise à jour de mémoire ignorée: Clients non disponibles.")
@@ -164,10 +163,36 @@ def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
         print(f"ERREUR CRITIQUE lors de la mise à jour de la mémoire Qdrant: {e}")
 
 
+def rechercher_memoire_via_search_batch(query_vector: List[float], limit: int) -> List[models.ScoredPoint]:
+    """
+    Fonction synchrone qui utilise Qdrant.search_batch pour simuler une recherche (compatible 1.16.1).
+    """
+    if not QDRANT_CLIENT:
+        return []
+    
+    # Création de la requête de recherche pour l'ancienne version
+    search_request = models.SearchRequest(
+        vector=query_vector,
+        limit=limit,
+        with_payload=True,
+    )
+    
+    # search_batch renvoie une liste de listes de ScoredPoint (une liste par requête)
+    results_batch = QDRANT_CLIENT.search_batch(
+        collection_name=COLLECTION_NAME,
+        requests=[search_request] # On passe une seule requête dans le lot
+    )
+
+    # On ne renvoie que le premier résultat du lot
+    if results_batch and results_batch[0]:
+        return results_batch[0]
+    
+    return []
+
+
 def _connexion_initiale_qdrant_sync(max_retries=3):
     """
     Logique synchrone de connexion et d'injection BCS (Base de Connaissances Statique).
-    Crée la collection seulement si elle n'existe pas ou est vide.
     """
     if not QDRANT_CLIENT or not LLM_CLIENT:
         return
@@ -323,12 +348,11 @@ async def gerer_requete_chat(request: ChatRequest):
             user_vector = user_vector_response.data[0].embedding
 
             # 2. Recherche de contexte pertinent (ASYNCHRONE via to_thread)
-            # Augmentation de la limite à 8 pour garantir la récupération des faits récents.
+            # UTILISE LA FONCTION SYNCHRONE CORRIGÉE : rechercher_memoire_via_search_batch
             resultats_rag = await asyncio.to_thread(
-                QDRANT_CLIENT.search,
-                collection_name=COLLECTION_NAME,
-                query_vector=user_vector,
-                limit=8 # Augmentation de la limite pour une meilleure couverture
+                rechercher_memoire_via_search_batch,
+                user_vector,
+                8 # Augmentation de la limite pour une meilleure couverture
             )
 
             # 3. Construction du contexte RAG (formaté pour la priorité)
@@ -345,14 +369,16 @@ async def gerer_requete_chat(request: ChatRequest):
                 contexte_rag += "\n" # Ajout d'une ligne pour séparer clairement la section
 
         except Exception as e:
+            # Cette erreur NE devrait PAS se produire si .search_batch est pris en charge.
             print(f"ERREUR RAG lors de la recherche Qdrant/Embedding: {e}")
             contexte_rag = "\n\nCONTEXTE MÉMOIRE RAG (ERREUR RAG): [Utiliser uniquement la connaissance interne]\n\n"
 
 
     # --- B. Exécution du LLM ---
-    # CONCATÉNATION DU PROMPT FINAL: Le RAG est maintenant inséré AVANT le message utilisateur,
-    # mais après le PROMPT_SYSTEM qui contient la règle de priorité absolue.
     
+    # --- DÉBOGAGE RAG : CONTEXTE ENVOYÉ AU LLM ---
+    print(f"\n--- DÉBOGAGE RAG : CONTEXTE ENVOYÉ AU LLM ---\n{contexte_rag}\n-------------------------------------------------\n")
+
     prompt_final = PROMPT_SYSTEM + contexte_rag + f"Message Utilisateur : {user_message}"
 
     try:
@@ -373,7 +399,7 @@ async def gerer_requete_chat(request: ChatRequest):
     response_text, json_data = separer_texte_et_json(llm_output)
 
     if json_data and rag_enabled:
-        # Exécution de la mise à jour de mémoire en arrière-plan (ASYNCHRONE)
+        # Exécution de la mise à jour de mémoire en arrière-plan (ASYNCHRONE via to_thread)
         asyncio.create_task(asyncio.to_thread(mettre_a_jour_memoire, json_data))
     elif json_data:
         print("AVERTISSEMENT: JSON de mémoire généré mais non traité car Qdrant est désactivé.")
