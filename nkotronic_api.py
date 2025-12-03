@@ -1,7 +1,7 @@
 # =================================================================
 # Fichier : nkotronic_api.py
-# Backend de l'application Nkotronic (API FastAPI) - VERSION COMPATIBLE V1.16.1 AVEC search_batch
-# Logique: Assurer la priorité de la mémoire utilisateur sur la connaissance interne (RAG).
+# Backend de l'application Nkotronic (API FastAPI) - VERSION CORRIGÉE V7
+# Correction: Intégration du corps manquant de l'endpoint /chat et ajout de memory_update
 # =================================================================
 
 import os
@@ -20,8 +20,9 @@ from dotenv import load_dotenv
 
 # --- Imports pour Qdrant et LLM ---
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import PointStruct, SearchRequest # Ajout de SearchRequest
+from qdrant_client.models import PointStruct, SearchRequest 
 from openai import OpenAI, APIError
+import hashlib # Import nécessaire pour l'ID stable
 
 # NOTE: Assurez-vous que bcs_data.py est disponible dans le dossier
 from bcs_data import BCS_INITIAL_FACTS
@@ -118,18 +119,25 @@ def separer_texte_et_json(llm_output: str) -> Tuple[str, Optional[List[Dict[str,
 def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
     """
     Crée les embeddings et insère les nouveaux points de mémoire dans Qdrant.
-    Exécuté en tâche de fond (thread bloquant).
+    Utilise le concept_identifie pour créer un ID stable et forcer l'écrasement.
     """
     if not QDRANT_CLIENT or not LLM_CLIENT:
         print("Mise à jour de mémoire ignorée: Clients non disponibles.")
         return
 
     texts_to_embed = []
-    
+    facts_to_process = [] # Liste pour garder les faits ordonnés
+
     for fact in json_data:
         if 'concept_identifie' in fact and 'element_français' in fact:
+            # 1. Création de la clé stable pour l'overwrite
+            concept_key = fact['concept_identifie'].lower().strip()
+            # Utilisation de sha256 pour générer un ID entier stable et unique par concept
+            stable_id = int(hashlib.sha256(concept_key.encode('utf-8')).hexdigest(), 16) % (2**63)
+
             text = f"{fact['concept_identifie']} : {fact['element_français']} {fact.get('element_nko', '')}"
             texts_to_embed.append(text)
+            facts_to_process.append((stable_id, fact)) # Stockage de l'ID et du fait
         else:
             print("AVERTISSEMENT: Fait ignoré car il manque 'concept_identifie' ou 'element_français'.")
 
@@ -141,11 +149,12 @@ def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
         response = LLM_CLIENT.embeddings.create(input=texts_to_embed, model=EMBEDDING_MODEL)
         
         points_to_insert = []
-        for i, fact in enumerate(json_data):
+        for i, (stable_id, fact) in enumerate(facts_to_process):
             vector = response.data[i].embedding
             points_to_insert.append(
                 models.PointStruct(
-                    id=str(uuid.uuid4()),
+                    # UTILISATION DE L'ID STABLE POUR L'OVERWRITE :
+                    id=stable_id, 
                     vector=vector,
                     payload=fact
                 )
@@ -157,11 +166,10 @@ def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
                 wait=True,
                 points=points_to_insert
             )
-            print(f"--- {len(points_to_insert)} NOUVEAUX FAITS DE MÉMOIRE INJECTÉS AVEC SUCCÈS. ---")
+            print(f"--- {len(points_to_insert)} FAITS DE MÉMOIRE MIS À JOUR (OVERWRITE PAR ID STABLE). ---")
 
     except Exception as e:
         print(f"ERREUR CRITIQUE lors de la mise à jour de la mémoire Qdrant: {e}")
-
 
 def rechercher_memoire_via_search_batch(query_vector: List[float], limit: int) -> List[models.ScoredPoint]:
     """
@@ -300,11 +308,11 @@ app.add_middleware(
 # Modèles de données pour les endpoints
 class ChatRequest(BaseModel):
     message: str
-    # Le frontend doit s'assurer que l'historique de chat est géré ici
-    # pour que l'IA ait le contexte de la conversation. (Non modifiable ici)
 
 class ChatResponse(BaseModel):
     response_text: str
+    # AJOUT DU CHAMP memory_update
+    memory_update: Optional[List[Dict[str, Any]]] = None
 
 
 # =================================================================
@@ -330,7 +338,8 @@ async def gerer_requete_chat(request: ChatRequest):
     if not LLM_CLIENT:
         raise HTTPException(status_code=503, detail="Service LLM non initialisé. Clé API manquante ou invalide.")
 
-    rag_enabled = QDRANT_CLIENT is not None
+    # Définition de rag_enabled (Correction de l'erreur reportUndefinedVariable)
+    rag_enabled = QDRANT_CLIENT is not None 
     user_message = request.message
     
     # Initialisation d'un contexte par défaut, même si le RAG est désactivé
@@ -348,7 +357,6 @@ async def gerer_requete_chat(request: ChatRequest):
             user_vector = user_vector_response.data[0].embedding
 
             # 2. Recherche de contexte pertinent (ASYNCHRONE via to_thread)
-            # UTILISE LA FONCTION SYNCHRONE CORRIGÉE : rechercher_memoire_via_search_batch
             resultats_rag = await asyncio.to_thread(
                 rechercher_memoire_via_search_batch,
                 user_vector,
@@ -388,6 +396,7 @@ async def gerer_requete_chat(request: ChatRequest):
             model=LLM_MODEL,
             messages=[{"role": "system", "content": prompt_final}]
         )
+        # Définition de llm_output (Correction de l'erreur reportUndefinedVariable)
         llm_output = llm_completion.choices[0].message.content
     except APIError as api_err:
         raise HTTPException(status_code=500, detail=f"Erreur de l'API LLM: {api_err.response.status_code} - {api_err.response.text}")
@@ -404,8 +413,11 @@ async def gerer_requete_chat(request: ChatRequest):
     elif json_data:
         print("AVERTISSEMENT: JSON de mémoire généré mais non traité car Qdrant est désactivé.")
 
-    # --- E. Réponse Finale ---
-    return ChatResponse(response_text=response_text)
+    # --- E. Réponse Finale (Inclus memory_update) ---
+    return ChatResponse(
+        response_text=response_text,
+        memory_update=json_data 
+    )
 
 
 # --- 8. Tâche de Démarrage ---
