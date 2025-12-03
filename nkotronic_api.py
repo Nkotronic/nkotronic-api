@@ -185,19 +185,22 @@ def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
 
 def rechercher_memoire_qdrant(query_vector: List[float], limit: int) -> List[models.ScoredPoint]:
     """
-    Fonction synchrone utilisant Qdrant.search (compatible toutes versions).
+    Fonction utilisant query_points (méthode moderne pour Qdrant 1.8+).
     """
     if not QDRANT_CLIENT:
         return []
     
     try:
-        results = QDRANT_CLIENT.search(
+        # Nouvelle API moderne (remplace .search)
+        response = QDRANT_CLIENT.query_points(
             collection_name=COLLECTION_NAME,
-            query_vector=query_vector,
+            query=query_vector,
             limit=limit,
             with_payload=True,
         )
-        return results
+        
+        # query_points retourne un objet avec .points
+        return response.points if hasattr(response, 'points') else []
         
     except Exception as e:
         print(f"ERREUR lors de la recherche Qdrant: {e}")
