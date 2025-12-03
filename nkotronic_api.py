@@ -183,31 +183,25 @@ def mettre_a_jour_memoire(json_data: List[Dict[str, Any]]):
     except Exception as e:
         print(f"ERREUR CRITIQUE lors de la mise à jour de la mémoire Qdrant: {e}")
 
-def rechercher_memoire_via_search_batch(query_vector: List[float], limit: int) -> List[models.ScoredPoint]:
+def rechercher_memoire_qdrant(query_vector: List[float], limit: int) -> List[models.ScoredPoint]:
     """
-    Fonction synchrone qui utilise Qdrant.search_batch pour simuler une recherche (compatible 1.16.1).
+    Fonction synchrone utilisant Qdrant.search (compatible toutes versions).
     """
     if not QDRANT_CLIENT:
         return []
     
-    # Création de la requête de recherche pour l'ancienne version
-    search_request = models.SearchRequest(
-        vector=query_vector,
-        limit=limit,
-        with_payload=True,
-    )
-    
-    # search_batch renvoie une liste de listes de ScoredPoint (une liste par requête)
-    results_batch = QDRANT_CLIENT.search_batch(
-        collection_name=COLLECTION_NAME,
-        requests=[search_request] # On passe une seule requête dans le lot
-    )
-
-    # On ne renvoie que le premier résultat du lot
-    if results_batch and results_batch[0]:
-        return results_batch[0]
-    
-    return []
+    try:
+        results = QDRANT_CLIENT.search(
+            collection_name=COLLECTION_NAME,
+            query_vector=query_vector,
+            limit=limit,
+            with_payload=True,
+        )
+        return results
+        
+    except Exception as e:
+        print(f"ERREUR lors de la recherche Qdrant: {e}")
+        return []
 
 
 def _connexion_initiale_qdrant_sync(max_retries=3):
@@ -370,10 +364,10 @@ async def gerer_requete_chat(request: ChatRequest):
 
             # 2. Recherche de contexte pertinent (ASYNCHRONE via to_thread)
             resultats_rag = await asyncio.to_thread(
-                rechercher_memoire_via_search_batch,
-                user_vector,
-                8 # Augmentation de la limite pour une meilleure couverture
-            )
+    rechercher_memoire_qdrant,  # ← Nouveau nom de fonction
+    user_vector,
+    15  # ← Augmenté pour meilleure couverture
+)
 
             # 3. Construction du contexte RAG (formaté pour la priorité)
             if resultats_rag:
