@@ -38,9 +38,9 @@ LLM_API_KEY = os.getenv("LLM_API_KEY")
 
 # Configuration des modèles
 COLLECTION_NAME = "nkotronic_knowledge_base"
-EMBEDDING_MODEL = "text-embedding-ada-002"      # Modèle de vectorisation (dim 1536)
-LLM_MODEL = "gpt-4o-mini"                       # Modèle conversationnel
-VECTOR_SIZE = 1536                              # Taille des vecteurs pour Qdrant
+EMBEDDING_MODEL = "text-embedding-ada-002"       # Modèle de vectorisation (dim 1536)
+LLM_MODEL = "gpt-4o-mini"                        # Modèle conversationnel
+VECTOR_SIZE = 1536                               # Taille des vecteurs pour Qdrant
 
 # --- 2. INITIALISATION DES CLIENTS GLOBALES ---
 QDRANT_CLIENT: Optional[QdrantClient] = None
@@ -48,19 +48,31 @@ LLM_CLIENT: Optional[OpenAI] = None
 QDRANT_LOCK = asyncio.Lock()
 
 try:
-    # 1. Initialisation Qdrant
+    # 1. Initialisation Qdrant (inchangée)
     if QDRANT_URL and QDRANT_API_KEY:
         QDRANT_CLIENT = QdrantClient(
             url=QDRANT_URL,
             api_key=QDRANT_API_KEY,
-            # RETIRER : timeout=60, 
-            # Supprime l'avertissement de version
             check_compatibility=False
         )
 
     # 2. Initialisation LLM (OpenAI)
+    
+    # 👇 TEST DE DIAGNOSTIC SIMPLIFIÉ
     if LLM_API_KEY:
-        LLM_CLIENT = OpenAI(api_key=LLM_API_KEY)
+        print(f"DEBUG SUCCÈS : LLM_API_KEY est chargée. Clé : {LLM_API_KEY[:5]}...")
+        # CORRECTION : Augmentation du timeout à 60s pour les appels d'embeddings lents
+        LLM_CLIENT = OpenAI(api_key=LLM_API_KEY, timeout=60.0) 
+    else:
+        print("DEBUG ERREUR CRITIQUE : LLM_API_KEY est vide/NONE. Initialisation LLM impossible.")
+        LLM_CLIENT = None
+    
+    # FIN DU TEST
+    
+except Exception as e:
+    print(f"ERREUR CRITIQUE: Échec de l'initialisation des clients Qdrant/LLM. Détail: {e}")
+    QDRANT_CLIENT = None
+    LLM_CLIENT = None
 
 except Exception as e:
     print(f"ERREUR CRITIQUE: Échec de l'initialisation des clients Qdrant/LLM. Détail: {e}")
@@ -298,9 +310,6 @@ def rechercher_memoire_qdrant(query_vector: List[float], limit: int) -> List[mod
         return []
 
 
-
-
-
 def pre_traiter_requete(message: str) -> str:
     """
     Reformule la requête utilisateur en substituant les termes N'ko
@@ -316,8 +325,8 @@ def pre_traiter_requete(message: str) -> str:
         if isinstance(nko_terms, str):
             VOCAB_REVERSE_MAP[nko_terms] = fr_term
         elif isinstance(nko_terms, list):
-             for nko_term in nko_terms:
-                 VOCAB_REVERSE_MAP[nko_term] = fr_term
+            for nko_term in nko_terms:
+                VOCAB_REVERSE_MAP[nko_term] = fr_term
 
 
     # Substitution : Remplacer les termes N'ko par leur traduction française
@@ -356,8 +365,7 @@ def chunk_list(data: list, chunk_size: int) -> List[list]:
 
 # Fichier : nkotronic_api.py (Remplacement de la Section 5)
 
-# =================================================================
-# 5. INITIALISATION ASYNCHRONE DE QDRANT (VERSION FINALE CORRIGÉE)
+# =================================================================# 5. INITIALISATION ASYNCHRONE DE QDRANT (VERSION FINALE CORRIGÉE)
 # =================================================================
 
 # Global pour suivre l'état d'initialisation
@@ -437,12 +445,13 @@ async def initialiser_qdrant(collection_name, dimension):
                 print(f"Génération de {len(textes_a_embarquer)} embeddings... Traitement par lots de {CHUNK_SIZE}.")
                 
                 # Boucle d'injection par lots
+                MAX_RETRIES = 3
                 for i, (text_batch, fact_batch) in enumerate(zip(text_batches, fact_batches)):
-                    
-                    print(f"  -> Traitement du lot {i+1}/{len(text_batches)} ({len(text_batch)} faits)...")
-                    
-                    # 1. Génération des embeddings pour le lot (c'est l'appel qui échouait)
-                    # Cet appel est maintenant petit et respecte la limite de jetons.
+    
+                    # Messages de débogage nettoyés
+                    print(f"    -> Traitement du lot {i+1}/{len(text_batches)} ({len(text_batch)} faits)...")
+    
+                    # 1. Génération des embeddings pour le lot 
                     embeddings_response = await asyncio.to_thread(
                         LLM_CLIENT.embeddings.create,
                         input=text_batch,
@@ -465,23 +474,40 @@ async def initialiser_qdrant(collection_name, dimension):
                         )
                     
                     # 3. Injecter/Mettre à jour les points Qdrant pour ce lot (upsert)
-                    # On injecte après chaque lot pour la fiabilité.
-                    await asyncio.to_thread(
-                        QDRANT_CLIENT.upsert,
-                        collection_name=collection_name,
-                        points=points_to_upsert,
-                        wait=True
-                        # RETIRER : timeout=60
-                    )
-                    
-                    total_points_injected += len(points_to_upsert)
+                    # 🚨 LOGIQUE DE RÉESSAI APPLIQUÉE ICI 🚨
+                    for attempt in range(MAX_RETRIES):
+                        try:
+                            # On injecte après chaque lot pour la fiabilité.
+                            await asyncio.to_thread(
+                                QDRANT_CLIENT.upsert,
+                                collection_name=collection_name,
+                                points=points_to_upsert,
+                                wait=True
+                            )
+                            # Si l'upsert réussit, on sort de la boucle de réessai
+                            break
+                        except Exception as e:
+                            if attempt < MAX_RETRIES - 1:
+                                print(f"AVERTISSEMENT: Échec de l'injection Qdrant du lot {i+1} (Tentative {attempt+1}/{MAX_RETRIES}). Erreur: {e}. Nouvelle tentative dans 5 secondes...")
+                                await asyncio.sleep(5)  # Attendre 5 secondes avant de réessayer
+                            else:
+                                # Si c'est la dernière tentative, on lève l'exception critique
+                                print(f"ERREUR CRITIQUE: Échec de l'injection Qdrant du lot {i+1} après {MAX_RETRIES} tentatives. Détail: {e}")
+                                # On lève l'exception pour que le bloc except du point 2 la capture et arrête tout.
+                                raise 
 
+                    total_points_injected += len(points_to_upsert)
+    
+                    # Pause augmentée (3s) pour éviter le timeout de Qdrant/OpenAI
+                    print("    -> Pause de 3 secondes pour respecter les limites de débit et le délai Qdrant...")
+                    await asyncio.sleep(3) # Pause asynchrone
+                    
                 print(f"Injection/Mise à jour B.C.S. de {total_points_injected} points terminée.")
             else:
                 print("AVERTISSEMENT: Aucun fait à injecter.")
 
         except Exception as e:
-            # Si cette erreur se produit encore (par exemple si Qdrant échoue pendant l'injection), on log l'erreur
+            # Ce bloc attrape les erreurs critiques après les tentatives de réessai
             print(f"ERREUR lors de la création ou de l'injection Qdrant: {e}")
             QDRANT_CLIENT = None 
             return 
