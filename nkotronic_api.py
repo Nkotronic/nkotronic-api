@@ -1,6 +1,6 @@
 # =================================================================
 # Fichier : nkotronic_api.py
-# Backend de l'application Nkotronic (API FastAPI) - VERSION V9 (Complète et Corrigée)
+# Backend de l'application Nkotronic (API FastAPI) - VERSION FINALE NETTOYÉE
 # =================================================================
 
 import os
@@ -42,7 +42,7 @@ EMBEDDING_MODEL = "text-embedding-ada-002"       # Modèle de vectorisation (dim
 LLM_MODEL = "gpt-4o-mini"                        # Modèle conversationnel
 VECTOR_SIZE = 1536                               # Taille des vecteurs pour Qdrant
 
-# --- 2. INITIALISATION DES CLIENTS GLOBALES ---
+# --- 2. INITIALISATION DES CLIENTS GLOBALES (CORRIGÉE) ---
 QDRANT_CLIENT: Optional[QdrantClient] = None
 LLM_CLIENT: Optional[OpenAI] = None
 QDRANT_LOCK = asyncio.Lock()
@@ -53,33 +53,18 @@ try:
         QDRANT_CLIENT = QdrantClient(
             url=QDRANT_URL,
             api_key=QDRANT_API_KEY,
-            # 🚨 CORRECTION : RETIRER LE PARAMÈTRE INCONNU 🚨
-            # check_compatibility=False  <-- A RETIRER
         )
 
     # 2. Initialisation LLM (OpenAI)
-    
-    # 👇 TEST DE DIAGNOSTIC SIMPLIFIÉ
     if LLM_API_KEY:
         print(f"DEBUG SUCCÈS : LLM_API_KEY est chargée. Clé : {LLM_API_KEY[:5]}...")
-        # CORRECTION : Augmentation du timeout à 60s pour les appels d'embeddings lents
+        # Augmentation du timeout à 60s pour les appels d'embeddings lents
         LLM_CLIENT = OpenAI(api_key=LLM_API_KEY, timeout=60.0) 
     else:
         print("DEBUG ERREUR CRITIQUE : LLM_API_KEY est vide/NONE. Initialisation LLM impossible.")
         LLM_CLIENT = None
     
-    # FIN DU TEST
-    
-except Exception as e:
-    print(f"ERREUR CRITIQUE: Échec de l'initialisation des clients Qdrant/LLM. Détail: {e}")
-    QDRANT_CLIENT = None
-    LLM_CLIENT = None
-
-except Exception as e:
-    print(f"ERREUR CRITIQUE: Échec de l'initialisation des clients Qdrant/LLM. Détail: {e}")
-    QDRANT_CLIENT = None
-    LLM_CLIENT = None
-
+# CORRECTION : Un seul bloc except pour toute la tentative d'initialisation
 except Exception as e:
     print(f"ERREUR CRITIQUE: Échec de l'initialisation des clients Qdrant/LLM. Détail: {e}")
     QDRANT_CLIENT = None
@@ -157,8 +142,6 @@ def separer_texte_et_json(llm_output: str) -> Tuple[str, Optional[List[Dict[str,
         
     return response_text, json_data
 
-
-# Insérer dans la section 4. FONCTIONS UTILITAIRES SYNCHRONES
 
 def transcrire_et_analyser(message: str) -> str:
     """
@@ -364,9 +347,8 @@ def chunk_list(data: list, chunk_size: int) -> List[list]:
     return [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
 
 
-# Fichier : nkotronic_api.py (Remplacement de la Section 5)
-
-# =================================================================# 5. INITIALISATION ASYNCHRONE DE QDRANT (VERSION FINALE CORRIGÉE)
+# =================================================================
+# 5. INITIALISATION ASYNCHRONE DE QDRANT (VERSION FINALE CORRIGÉE)
 # =================================================================
 
 # Global pour suivre l'état d'initialisation
@@ -432,7 +414,7 @@ async def initialiser_qdrant(collection_name, dimension):
                 # Récupérer les textes à embarquer
                 textes_a_embarquer = [f['element_français'] for f in tous_les_faits]
                 
-                # --- NOUVELLE LOGIQUE DE BATCHING POUR ÉVITER LA LIMITE OPENAI ---
+                # --- LOGIQUE DE BATCHING POUR ÉVITER LA LIMITE OPENAI ---
                 
                 # Taille de lot de 100 entrées est très sûre pour les embeddings OpenAI.
                 CHUNK_SIZE = 100
@@ -567,8 +549,6 @@ def health_check():
     return status
 
 
-# Fichier : nkotronic_api.py (Fonction gerer_requete_chat corrigée)
-
 @app.post("/chat", response_model=ChatResponse)
 async def gerer_requete_chat(request: ChatRequest):
     """
@@ -578,7 +558,7 @@ async def gerer_requete_chat(request: ChatRequest):
     if not LLM_CLIENT:
         raise HTTPException(status_code=503, detail="Service LLM non initialisé. Clé API manquante ou invalide.")
 
-    # 🚨 INITIALISATION DES VARIABLES (CORRECTION DES ERREURS PYLANCE)
+    # 🚨 INITIALISATION DES VARIABLES 
     rag_enabled = QDRANT_CLIENT is not None 
     user_message_original = request.message
     user_message = user_message_original # Initialisation par défaut
@@ -699,7 +679,7 @@ async def startup_event():
     print("Démarrage de l'application Nkotronic API...")
 
     if QDRANT_URL and EMBEDDING_MODEL and LLM_CLIENT:
-        # CORRECTION : Appel de la fonction initialiser_qdrant avec les bons arguments
+        # Appel de la fonction initialiser_qdrant avec les bons arguments
         await initialiser_qdrant(
             COLLECTION_NAME, # La collection est COLLECTION_NAME
             VECTOR_SIZE      # La dimension est VECTOR_SIZE
