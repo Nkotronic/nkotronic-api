@@ -142,6 +142,24 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(
+    title="Nkotronic API",
+    description="API de traduction Français ↔ N'ko avec mémoire RAG",
+    version="2.0.0",
+    lifespan=lifespan
+)
+
+# ✅ AJOUTEZ CECI JUSTE APRÈS LA CRÉATION DE app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En production, remplacez par vos domaines spécifiques
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 class ChatRequest(BaseModel):
     user_message: str = Field(..., description="Message utilisateur")
     rag_enabled: bool = Field(True, description="Activer le RAG")
