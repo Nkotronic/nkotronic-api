@@ -48,12 +48,13 @@ LLM_CLIENT: Optional[OpenAI] = None
 QDRANT_LOCK = asyncio.Lock()
 
 try:
-    # 1. Initialisation Qdrant (inchangée)
+    # 1. Initialisation Qdrant
     if QDRANT_URL and QDRANT_API_KEY:
         QDRANT_CLIENT = QdrantClient(
             url=QDRANT_URL,
             api_key=QDRANT_API_KEY,
-            check_compatibility=False
+            # 🚨 CORRECTION : RETIRER LE PARAMÈTRE INCONNU 🚨
+            # check_compatibility=False  <-- A RETIRER
         )
 
     # 2. Initialisation LLM (OpenAI)
