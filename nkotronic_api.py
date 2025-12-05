@@ -6,6 +6,8 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Optional, AsyncIterator, List, Dict
 from pathlib import Path
+from collections import deque
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,6 +58,11 @@ else:
 LLM_CLIENT: Optional[OpenAI] = None
 QDRANT_CLIENT: Optional[AsyncQdrantClient] = None
 
+# 🆕 PHASE 6: SYSTÈME DE MÉMOIRE CONVERSATIONNELLE
+# Stockage des conversations par session
+CONVERSATION_MEMORY: Dict[str, deque] = {}
+MAX_MEMORY_SIZE = 100  # 100 derniers messages
+
 # --- CONSTANTS ---
 COLLECTION_NAME = "nkotronic_knowledge_base"
 VECTOR_SIZE = 1536
@@ -74,64 +81,76 @@ NKO_PHONETIC_MAP = {
     '߀': '0', '߁': '1', '߂': '2', '߃': '3', '߄': '4',
     '߅': '5', '߆': '6', '߇': '7', '߈': '8', '߉': '9'
 }
-                            
-PROMPT_SYSTEM = """Tu es Nkotronic, assistant N'ko amical, efficace et intelligent.
 
-CONTEXTE DISPONIBLE:
+# 🆕 PHASE 6: PROMPT SYSTÈME INTELLIGENT AVEC MÉMOIRE
+PROMPT_SYSTEM_INTELLIGENT = """Tu es Nkotronic, assistant N'ko intelligent, empathique et doté d'une excellente mémoire.
+
+🧠 PERSONNALITÉ:
+- Tu es patient, pédagogue et encourageant
+- Tu te souviens de TOUTE la conversation en cours
+- Tu analyses, réfléchis et déduis intelligemment
+- Tu as un vrai sens de l'humour et de la culture mandingue
+
+📚 CONTEXTE DE LA CONVERSATION:
+{historique_conversation}
+
+🔍 CONNAISSANCES PERTINENTES (Base de données):
 {contexte_rag}
 
-INSTRUCTIONS DE BASE:
-- Utilise les traductions du contexte UNIQUEMENT si la question le demande
-- N'utilise PAS les salutations du contexte sauf si l'utilisateur dit "bonjour" ou "salut"
-- Réponds naturellement sans ajouter de salutations inutiles
-- Si c'est une question de traduction, donne directement la réponse
+⚠️ RÈGLES ABSOLUES:
 
-🧠 CAPACITÉS DE RAISONNEMENT AVANCÉ (PHASE 4):
+1. PRIORITÉ AU CONTEXTE RAG:
+   - Si le contexte RAG contient la réponse EXACTE (score=1.0), utilise-la OBLIGATOIREMENT
+   - Ne cherche PAS ailleurs si tu as déjà la réponse dans le contexte
+   - Exemple: Si contexte dit "clavier = ߝߐߞߘߎߥߟߊ", réponds EXACTEMENT ça
 
-1. DÉDUCTION LINGUISTIQUE:
-   - Si on te demande le pluriel d'un mot que tu connais, essaie de le déduire selon les règles N'ko
-   - Si on te demande l'antonyme, raisonne à partir du concept
-   - Si on te demande un synonyme, cherche dans le même champ sémantique
+2. UTILISATION DE LA MÉMOIRE:
+   - Relis l'historique pour comprendre le contexte complet
+   - Fais référence aux messages précédents quand c'est pertinent
+   - Si on te demande "tu es sûr ?", relis ce que tu as dit avant
+   - Si on te demande un résumé, analyse TOUS les messages précédents
 
-2. ANALYSE CONTEXTUELLE:
-   - Utilise le champ "fait_texte" pour enrichir ta réponse avec des explications
-   - Utilise "valeur_numerique" pour les conversions et calculs si nécessaire
-   - Utilise "exemples" pour illustrer l'usage du mot
-
-3. INFÉRENCE CULTURELLE:
-   - Si la question porte sur un concept abstrait, explique son contexte culturel N'ko
-   - Fais des liens entre concepts similaires dans ta base de connaissances
+3. INTELLIGENCE ET RAISONNEMENT:
+   - Déduis les relations entre concepts
+   - Explique le "pourquoi" pas juste le "quoi"
+   - Propose des exemples concrets et culturels
+   - Corrige-toi si tu te trompes (en consultant l'historique)
 
 4. GESTION DES LACUNES:
-   - Si tu ne connais pas exactement la réponse mais as des informations proches, dis-le
-   - Propose des alternatives ou mots apparentés
-   - Sois honnête sur les limites de tes connaissances
+   - Si tu ne sais pas, dis-le honnêtement
+   - Propose des alternatives proches
+   - Demande des précisions si nécessaire
 
-EXEMPLES DE RAISONNEMENT:
+5. SALUTATIONS:
+   - Réponds aux salutations naturellement
+   - N'ajoute PAS de salutations si ce n'est pas le contexte
+   - Utilise le N'ko pour les formules de politesse
 
-Q: "tu vas bien ?" 
+EXEMPLES DE COMPORTEMENT INTELLIGENT:
+
+Q: "salut ça va ?"
 → R: "Je vais bien, merci ! Et toi ?"
 
-Q: "c'est quoi ߛߓߍߘߋ߲ ?" + CONTEXTE: "lettre = ߛߓߍߘߋ߲"
-→ R: "ߛߓߍߘߋ߲ signifie 'lettre' en français."
+Q: "c'est quoi ߝߐߞߘߎߥߟߊ ?" + RAG: "clavier = ߝߐߞߘߎߥߟߊ (score=1.0)"
+→ R: "ߝߐߞߘߎߥߟߊ signifie 'clavier' en français. C'est l'outil qu'on utilise pour taper en N'ko."
 
-Q: "bonjour" 
-→ R: "ߊߟߎ߫ ߣߌ߫ ߖߐ ! Comment puis-je t'aider ?"
+Q: "tu es sûr ?" (après avoir dit que ߝߐߞߘߎߥߟߊ = feu)
+→ R: "Pardon, j'ai fait une erreur ! En relisant, je vois que je t'ai appris que ߝߐߞߘߎߥߟߊ = clavier. C'est bien clavier, pas feu."
 
-Q: "comment dire 'paix' en nko ?" + CONTEXTE: "paix = ߖߐ (concept_abstrait)"
-→ R: "En N'ko, 'paix' se dit ߖߐ (jo). C'est un concept important dans la culture mandingue."
+Q: "résume notre conversation"
+→ R: [Analyse les 100 derniers messages et fait un vrai résumé structuré]
 
-Q: "quel est le contraire de paix ?" + CONTEXTE: "paix = ߖߐ"
-→ R: "Le contraire de paix (ߖߐ) serait la guerre. Bien que je n'aie pas la traduction exacte en mémoire, en N'ko on pourrait dire 'ߞߍ߬ߟߍ' (kɛlɛ)."
+Q: "on parlait de quoi il y a 10 messages ?"
+→ R: [Compte -10 messages et répond précisément]
 
-Question: {user_message}
+Question actuelle: {user_message}
 
-Réponds maintenant avec intelligence et contexte:"""
+Réponds maintenant avec intelligence, mémoire et précision:"""
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[dict]:
     global LLM_CLIENT, QDRANT_CLIENT
-    logging.info("🚀 Démarrage de l'API Nkotronic...")
+    logging.info("🚀 Démarrage de Nkotronic v2.4.0 (Mémoire Intelligente)...")
 
     # 1️⃣ INIT OpenAI
     try:
@@ -182,14 +201,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[dict]:
     else:
         logging.warning("⚠️ Qdrant non configuré")
 
-    logging.info("✅ API Nkotronic prête!")
+    logging.info("✅ Nkotronic v2.4.0 prêt avec mémoire conversationnelle!")
     yield {}
-    logging.info("🛑 Arrêt de l'API Nkotronic")
+    logging.info("🛑 Arrêt de Nkotronic")
 
 app = FastAPI(
     title="Nkotronic API",
-    description="API de traduction Français ↔ N'ko avec mémoire RAG",
-    version="2.0.0",
+    description="API de traduction Français ↔ N'ko avec mémoire RAG + Mémoire Conversationnelle",
+    version="2.4.0",
     lifespan=lifespan
 )
 
@@ -205,11 +224,13 @@ app.add_middleware(
 # --- MODELS ---
 class ChatRequest(BaseModel):
     user_message: str = Field(..., description="Message utilisateur")
+    session_id: Optional[str] = Field(None, description="ID de session pour mémoire conversationnelle")
     rag_enabled: bool = Field(True, description="Activer le RAG")
     debug: bool = Field(False, description="Mode debug avec détails")
 
 class ChatResponse(BaseModel):
     response_text: str = Field(..., description="Texte de réponse")
+    session_id: str = Field(..., description="ID de session")
     memory_update: Optional[dict] = Field(None, description="Mise à jour mémoire")
     debug_info: Optional[dict] = Field(None, description="Infos de debug")
 
@@ -288,6 +309,215 @@ class ConnaissanceEntry(BaseModel):
     appris_par: Optional[str] = Field(None, description="Qui a enseigné")
     date_ajout: Optional[str] = Field(None, description="Timestamp d'ajout")
 
+
+# 🆕 PHASE 6: GESTION DE LA MÉMOIRE CONVERSATIONNELLE
+def get_or_create_session(session_id: Optional[str] = None) -> str:
+    """Récupère ou crée une session de conversation."""
+    if session_id and session_id in CONVERSATION_MEMORY:
+        return session_id
+    
+    # Créer nouvelle session
+    new_session_id = session_id or str(uuid.uuid4())
+    CONVERSATION_MEMORY[new_session_id] = deque(maxlen=MAX_MEMORY_SIZE)
+    logging.info(f"🆕 Nouvelle session créée: {new_session_id}")
+    return new_session_id
+
+
+def ajouter_message_memoire(session_id: str, role: str, content: str):
+    """Ajoute un message à l'historique de la session."""
+    if session_id not in CONVERSATION_MEMORY:
+        CONVERSATION_MEMORY[session_id] = deque(maxlen=MAX_MEMORY_SIZE)
+    
+    message = {
+        'role': role,
+        'content': content,
+        'timestamp': datetime.now().isoformat()
+    }
+    
+    CONVERSATION_MEMORY[session_id].append(message)
+    logging.info(f"💬 Message ajouté à session {session_id[:8]}... (total: {len(CONVERSATION_MEMORY[session_id])} messages)")
+
+
+def formater_historique_conversation(session_id: str, limite: int = 20) -> str:
+    """
+    Formate l'historique de conversation pour le contexte du LLM.
+    
+    Args:
+        session_id: ID de la session
+        limite: Nombre de derniers messages à inclure (par défaut 20 pour le contexte)
+    
+    Returns:
+        Historique formaté
+    """
+    if session_id not in CONVERSATION_MEMORY:
+        return "[Nouvelle conversation - Pas d'historique]"
+    
+    historique = list(CONVERSATION_MEMORY[session_id])
+    
+    if not historique:
+        return "[Nouvelle conversation - Pas d'historique]"
+    
+    # Prendre les N derniers messages
+    messages_recents = historique[-limite:] if len(historique) > limite else historique
+    
+    lignes = []
+    lignes.append(f"[Historique: {len(historique)} messages total, affichage des {len(messages_recents)} plus récents]")
+    lignes.append("")
+    
+    for i, msg in enumerate(messages_recents, 1):
+        role_symbol = "👤" if msg['role'] == 'user' else "🤖"
+        lignes.append(f"{role_symbol} Message #{len(historique) - len(messages_recents) + i}:")
+        lignes.append(f"   {msg['content'][:200]}{'...' if len(msg['content']) > 200 else ''}")
+        lignes.append("")
+    
+    return "\n".join(lignes)
+
+
+async def analyser_intention_memoire(user_message: str, session_id: str, llm_client: OpenAI) -> Optional[Dict]:
+    """
+    Détecte si le message demande une analyse de l'historique.
+    
+    Types d'intentions:
+    - "résume" : Résumer la conversation
+    - "on parlait de quoi" : Rappeler le contexte
+    - "il y a X messages" : Accéder à un message spécifique
+    - "qu'est-ce que j'ai dit" : Retrouver un message utilisateur
+    """
+    import re
+    
+    message_lower = user_message.lower().strip()
+    
+    # Détection résumé
+    if any(word in message_lower for word in ['résume', 'résumer', 'résumé', 'synthèse', 'récapitulatif']):
+        return {
+            'type': 'resume',
+            'action': 'resume_conversation'
+        }
+    
+    # Détection contexte passé
+    if any(phrase in message_lower for phrase in ['on parlait de', 'on discutait de', 'de quoi on parlait']):
+        return {
+            'type': 'rappel_contexte',
+            'action': 'recall_context'
+        }
+    
+    # Détection accès message spécifique
+    match_messages = re.search(r'(?:il y a|voilà|ya|y\'a)\s+(\d+)\s+messages?', message_lower)
+    if match_messages:
+        nb_messages = int(match_messages.group(1))
+        return {
+            'type': 'acces_message',
+            'action': 'access_specific_message',
+            'offset': nb_messages
+        }
+    
+    # Détection "qu'est-ce que j'ai dit"
+    if any(phrase in message_lower for phrase in ["qu'est-ce que j'ai dit", "qu'ai-je dit", "ce que j'ai dit", "rappelle-moi ce que"]):
+        return {
+            'type': 'rappel_user',
+            'action': 'recall_user_messages'
+        }
+    
+    return None
+
+
+async def executer_action_memoire(intention: Dict, session_id: str, llm_client: OpenAI) -> str:
+    """
+    Exécute une action basée sur la mémoire conversationnelle.
+    
+    Args:
+        intention: Dict avec type et action
+        session_id: ID de session
+        llm_client: Client OpenAI
+    
+    Returns:
+        Réponse générée
+    """
+    if session_id not in CONVERSATION_MEMORY:
+        return "Nous n'avons pas encore d'historique de conversation."
+    
+    historique = list(CONVERSATION_MEMORY[session_id])
+    
+    if not historique:
+        return "Nous venons de commencer notre conversation."
+    
+    action = intention['action']
+    
+    # ACTION 1: Résumer la conversation
+    if action == 'resume_conversation':
+        # Construire un prompt de résumé
+        messages_text = "\n".join([
+            f"{'Utilisateur' if m['role'] == 'user' else 'Nkotronic'}: {m['content']}"
+            for m in historique
+        ])
+        
+        prompt_resume = f"""Analyse cette conversation entre un utilisateur et Nkotronic (assistant N'ko) et fais-en un résumé structuré et intelligent.
+
+CONVERSATION ({len(historique)} messages):
+{messages_text}
+
+Fais un résumé qui inclut:
+1. Les sujets principaux abordés
+2. Les apprentissages effectués (mots, règles, etc.)
+3. Les questions importantes posées
+4. L'évolution de la conversation
+
+Sois concis mais précis."""
+
+        try:
+            response = await asyncio.to_thread(
+                llm_client.chat.completions.create,
+                model=LLM_MODEL,
+                messages=[{"role": "user", "content": prompt_resume}],
+                temperature=0.3,
+                max_tokens=500
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logging.error(f"❌ Erreur résumé: {e}")
+            return f"Erreur lors du résumé de la conversation: {str(e)}"
+    
+    # ACTION 2: Rappeler le contexte
+    elif action == 'recall_context':
+        derniers_messages = historique[-10:]
+        lignes = ["Voici les derniers sujets dont nous avons parlé:"]
+        
+        for msg in derniers_messages:
+            role = "Tu as dit" if msg['role'] == 'user' else "J'ai répondu"
+            lignes.append(f"- {role}: {msg['content'][:100]}{'...' if len(msg['content']) > 100 else ''}")
+        
+        return "\n".join(lignes)
+    
+    # ACTION 3: Accéder à un message spécifique
+    elif action == 'access_specific_message':
+        offset = intention.get('offset', 1)
+        
+        if offset > len(historique):
+            return f"Nous n'avons échangé que {len(historique)} messages jusqu'à présent."
+        
+        message_cible = historique[-(offset + 1)]  # +1 car on exclut le message actuel
+        role = "Tu as dit" if message_cible['role'] == 'user' else "J'ai répondu"
+        
+        return f"Il y a {offset} messages, {role.lower()}: \"{message_cible['content']}\""
+    
+    # ACTION 4: Rappeler messages utilisateur
+    elif action == 'recall_user_messages':
+        messages_user = [m for m in historique if m['role'] == 'user']
+        
+        if not messages_user:
+            return "Tu n'as pas encore envoyé de messages."
+        
+        derniers_user = messages_user[-5:]
+        lignes = ["Voici tes derniers messages:"]
+        
+        for msg in derniers_user:
+            lignes.append(f"- \"{msg['content'][:150]}{'...' if len(msg['content']) > 150 else ''}\"")
+        
+        return "\n".join(lignes)
+    
+    return "Action non reconnue."
+
+
 # --- FONCTION D'EXTRACTION MOT-CLÉ ---
 async def extraire_mot_cle(user_message: str, llm_client: OpenAI) -> str:
     """Extrait le mot français à traduire de manière robuste."""
@@ -330,14 +560,19 @@ Mot:"""
         significant = [w for w in words if w not in stop_words and len(w) > 2]
         return significant[-1] if significant else user_message.lower()
 
-# --- RECHERCHE MULTI-STRATÉGIE ---
-async def recherche_intelligente(mot_cle: str, llm_client: OpenAI, qdrant_client: AsyncQdrantClient):
-    """Recherche avec plusieurs stratégies pour maximiser les résultats."""
+
+# 🆕 PHASE 6: RECHERCHE INTELLIGENTE AVEC FILTRAGE SCORE=1.0
+async def recherche_intelligente_filtree(mot_cle: str, llm_client: OpenAI, qdrant_client: AsyncQdrantClient):
+    """
+    Recherche avec filtrage intelligent:
+    - Si score=1.0 trouvé, ne retourne QUE ce résultat
+    - Sinon, retourne top 5 résultats pertinents
+    """
     all_results = []
     
     # STRATÉGIE 1: Recherche exacte
     try:
-        logging.info(f"🔍 Stratégie 1: Recherche exacte pour '{mot_cle}'")
+        logging.info(f"🔍 Recherche pour '{mot_cle}'")
         emb_resp = await asyncio.to_thread(
             llm_client.embeddings.create,
             input=[mot_cle],
@@ -353,65 +588,34 @@ async def recherche_intelligente(mot_cle: str, llm_client: OpenAI, qdrant_client
         )
         hits = result.points
         all_results.extend(hits)
-        logging.info(f"   -> {len(hits)} résultats trouvés")
+        
+        # 🎯 FILTRAGE INTELLIGENT: Si score=1.0, ne garder QUE ce résultat
+        perfect_match = [h for h in hits if h.score >= 0.999]  # Score quasi-parfait
+        
+        if perfect_match:
+            logging.info(f"✅ MATCH PARFAIT trouvé (score={perfect_match[0].score:.4f})")
+            return perfect_match[:1]  # Retourner UNIQUEMENT le match parfait
+        
+        logging.info(f"   -> {len(hits)} résultats trouvés (meilleur score: {hits[0].score if hits else 0:.4f})")
+        
     except Exception as e:
-        logging.error(f"❌ Stratégie 1 échouée: {e}")
+        logging.error(f"❌ Recherche échouée: {e}")
     
-    # STRATÉGIE 2: Recherche avec variantes
-    variantes = [
-        mot_cle,
-        mot_cle + 's',
-        mot_cle.rstrip('s'),
-        mot_cle.replace('é', 'e').replace('è', 'e').replace('ê', 'e'),
-    ]
-    variantes = list(set(variantes))
-    
-    if len(variantes) > 1:
-        try:
-            logging.info(f"🔍 Stratégie 2: Recherche avec variantes {variantes}")
-            emb_resp = await asyncio.to_thread(
-                llm_client.embeddings.create,
-                input=variantes,
-                model=EMBEDDING_MODEL
-            )
-            
-            for i, var in enumerate(variantes[1:], 1):
-                vector = emb_resp.data[i].embedding
-                result = await qdrant_client.query_points(
-                    collection_name=COLLECTION_NAME,
-                    query=vector,
-                    limit=10,
-                    with_payload=True
-                )
-                hits = result.points
-                all_results.extend(hits)
-            logging.info(f"   -> {len(all_results)} résultats totaux")
-        except Exception as e:
-            logging.error(f"❌ Stratégie 2 échouée: {e}")
-    
-    # STRATÉGIE 3: Échantillon de la base
-    try:
-        sample = await qdrant_client.scroll(
-            collection_name=COLLECTION_NAME,
-            limit=5,
-            with_payload=True
-        )
-        logging.info(f"📚 Échantillon de la base (5 premiers):")
-        for point in sample[0]:
-            logging.info(f"   - {point.payload}")
-    except Exception as e:
-        logging.error(f"❌ Échantillon échoué: {e}")
-    
-    # Dédupliquer et trier
-    seen_ids = set()
+    # STRATÉGIE 2: Si pas de match parfait, utiliser top 5 pertinents
     unique_results = []
+    seen_ids = set()
+    
     for hit in all_results:
-        if hit.id not in seen_ids:
+        if hit.id not in seen_ids and hit.score > RAG_SCORE_THRESHOLD:
             seen_ids.add(hit.id)
             unique_results.append(hit)
+            
+            if len(unique_results) >= 5:  # Limiter à 5 résultats max
+                break
     
     unique_results.sort(key=lambda x: x.score, reverse=True)
     return unique_results
+
 
 # --- PRÉ-TRAITEMENT INTELLIGENT ---
 async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_client: AsyncQdrantClient):
@@ -423,10 +627,8 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
         """Normalise un texte N'ko pour comparaison fiable"""
         if not texte:
             return ""
-        # Normalisation NFD puis NFC
         texte = unicodedata.normalize('NFD', texte)
         texte = unicodedata.normalize('NFC', texte)
-        # Supprimer espaces multiples
         texte = ' '.join(texte.split())
         return texte.strip()
     
@@ -442,11 +644,9 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
     traductions = []
     for nko_word in nko_words:
         try:
-            # Normaliser le mot N'ko
             nko_word_norm = normaliser_nko(nko_word)
             logging.info(f"🔤 Mot normalisé: {nko_word} → {nko_word_norm}")
             
-            # Créer un embedding du mot N'ko
             emb_resp = await asyncio.to_thread(
                 llm_client.embeddings.create,
                 input=[nko_word_norm],
@@ -454,7 +654,6 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
             )
             vector = emb_resp.data[0].embedding
             
-            # Rechercher les points similaires
             results = await qdrant_client.query_points(
                 collection_name=COLLECTION_NAME,
                 query=vector,
@@ -482,7 +681,7 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
             
             # STRATÉGIE 2: Si pas de match exact, prendre le meilleur score
             if not any(t['nko'] == nko_word for t in traductions):
-                if results.points and results.points[0].score > 0.80:  # Seuil abaissé à 0.80
+                if results.points and results.points[0].score > 0.80:
                     best = results.points[0]
                     fr = best.payload.get('element_français')
                     nko_found = best.payload.get('element_nko')
@@ -494,7 +693,7 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
                         })
                         logging.info(f"✅ Meilleur match trouvé: {nko_word} ≈ {nko_found} = {fr} (score: {best.score:.4f})")
                 else:
-                    logging.warning(f"⚠️ Aucune traduction trouvée pour: {nko_word} (meilleur score: {results.points[0].score if results.points else 0:.4f})")
+                    logging.warning(f"⚠️ Aucune traduction trouvée pour: {nko_word}")
                 
         except Exception as e:
             logging.error(f"❌ Erreur lors de la recherche de {nko_word}: {e}")
@@ -910,28 +1109,22 @@ async def apprendre_connaissance(
         
         # Déterminer le texte pour l'embedding selon le type
         if type_conn == 'mot':
-            # Mot simple
             texte_embedding = connaissance_data.get('français', '')
         elif type_conn == 'règle':
-            # Règle: utiliser titre + explication
             texte_embedding = f"{connaissance_data.get('titre_règle', '')} {connaissance_data.get('explication_règle', '')}"
         elif type_conn in ['fait', 'anecdote']:
-            # Fait/Anecdote: utiliser titre + contenu
             texte_embedding = f"{connaissance_data.get('titre', '')} {connaissance_data.get('contenu', '')}"
         elif type_conn == 'liste':
-            # Liste: utiliser nom de liste + tous les éléments
             nom = connaissance_data.get('nom_liste', '')
             elements = connaissance_data.get('elements_liste', [])
             elements_text = ' '.join([f"{e.get('fr', '')} {e.get('nko', '')}" for e in elements])
             texte_embedding = f"{nom} {elements_text}"
         elif type_conn == 'conjugaison':
-            # Conjugaison: utiliser verbe français + formes
             verbe = connaissance_data.get('verbe_français', '')
             formes = connaissance_data.get('formes', {})
             formes_text = ' '.join(formes.values())
             texte_embedding = f"conjugaison {verbe} {formes_text}"
         elif type_conn in ['expression', 'proverbe']:
-            # Expression/Proverbe: utiliser signification + texte nko
             texte_nko = connaissance_data.get('texte_nko', '')
             signification = connaissance_data.get('signification', '')
             texte_embedding = f"{signification} {texte_nko}"
@@ -1021,7 +1214,7 @@ def decomposer_syllabe_nko(mot_nko: str) -> List[str]:
     voyelles = 'ߊߋߌߍߎߏߐ'
     
     # Pattern: (Consonne)+ Voyelle (Modificateurs)*
-    pattern = f'[^{voyelles}]*[{voyelles}][߲߫߬߭߮߯߰߱]*'
+    pattern = f'[^{voyelles}]*[{voyelles}][߲߫߬߭߮߯߰߱]*'
     
     syllabes = re.findall(pattern, mot_nko)
     
@@ -1073,25 +1266,21 @@ def formater_connaissance_pour_contexte(payload: Dict) -> str:
         return ligne
     
     elif type_conn == 'règle':
-        # Format pour règles grammaticales
         titre = payload.get('titre_règle', '')
         explication = payload.get('explication_règle', '')
         return f"- [RÈGLE] {titre}: {explication}"
     
     elif type_conn == 'fait':
-        # Format pour faits culturels
         titre = payload.get('titre', '')
         contenu = payload.get('contenu', '')
         return f"- [FAIT] {titre}: {contenu}"
     
     elif type_conn == 'anecdote':
-        # Format pour anecdotes
         titre = payload.get('titre', '')
         contenu = payload.get('contenu', '')
         return f"- [ANECDOTE] {titre}: {contenu}"
     
     elif type_conn == 'liste':
-        # Format pour listes
         nom_liste = payload.get('nom_liste', '')
         elements = payload.get('elements_liste', [])
         elements_str = ', '.join([f"{e.get('fr')}={e.get('nko')}" for e in elements[:5]])
@@ -1100,7 +1289,6 @@ def formater_connaissance_pour_contexte(payload: Dict) -> str:
         return f"- [LISTE] {nom_liste}: {elements_str}"
     
     elif type_conn == 'conjugaison':
-        # Format pour conjugaisons
         verbe_nko = payload.get('verbe_nko', '')
         verbe_fr = payload.get('verbe_français', '')
         formes = payload.get('formes', {})
@@ -1108,7 +1296,6 @@ def formater_connaissance_pour_contexte(payload: Dict) -> str:
         return f"- [CONJUGAISON] {verbe_nko} ({verbe_fr}): {formes_str}"
     
     elif type_conn == 'expression':
-        # Format pour expressions
         texte_nko = payload.get('texte_nko', '')
         signification = payload.get('signification', '')
         trad_lit = payload.get('traduction_littérale', '')
@@ -1118,13 +1305,11 @@ def formater_connaissance_pour_contexte(payload: Dict) -> str:
         return ligne
     
     elif type_conn == 'proverbe':
-        # Format pour proverbes
         texte_nko = payload.get('texte_nko', '')
         signification = payload.get('signification', '')
         return f"- [PROVERBE] {texte_nko} = {signification}"
     
     else:
-        # Format générique
         return f"- {payload}"
 
 
@@ -1150,7 +1335,8 @@ def recherche_phonetique(query: str, mot_nko: str) -> float:
     
     return matches / max_len if max_len > 0 else 0.0
 
-# --- ENDPOINT CHAT ---
+
+# --- ENDPOINT CHAT AVEC MÉMOIRE INTELLIGENTE ---
 @app.post('/chat', response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
     global LLM_CLIENT, QDRANT_CLIENT
@@ -1158,11 +1344,37 @@ async def chat_endpoint(req: ChatRequest):
     if LLM_CLIENT is None:
         raise HTTPException(status_code=503, detail='LLM non initialisé')
 
+    # 🆕 PHASE 6: Gestion de la session
+    session_id = get_or_create_session(req.session_id)
+    
     debug_info = {} if req.debug else None
     rag_active = req.rag_enabled and (QDRANT_CLIENT is not None)
     contexte_rag_text = '[Aucune donnée en mémoire]'
 
     try:
+        # 🆕 PHASE 6: Vérifier si c'est une demande d'analyse de mémoire
+        intention_memoire = await analyser_intention_memoire(req.user_message, session_id, LLM_CLIENT)
+        
+        if intention_memoire:
+            # C'est une demande d'analyse de l'historique !
+            logging.info(f"🧠 Intention mémoire détectée: {intention_memoire['type']}")
+            
+            response_text = await executer_action_memoire(intention_memoire, session_id, LLM_CLIENT)
+            
+            # Ajouter à l'historique
+            ajouter_message_memoire(session_id, 'user', req.user_message)
+            ajouter_message_memoire(session_id, 'assistant', response_text)
+            
+            return ChatResponse(
+                response_text=response_text,
+                session_id=session_id,
+                memory_update=None,
+                debug_info={
+                    'intention_memoire': intention_memoire,
+                    'historique_size': len(CONVERSATION_MEMORY[session_id])
+                } if req.debug else None
+            )
+        
         # PHASE 5.1: Détecter type de connaissance (règles, faits, listes, etc.) - PRIORITÉ HAUTE
         type_info = detecter_type_connaissance(req.user_message)
         
@@ -1176,8 +1388,13 @@ async def chat_endpoint(req: ChatRequest):
                 qdrant_client=QDRANT_CLIENT
             )
             
+            # Ajouter à l'historique
+            ajouter_message_memoire(session_id, 'user', req.user_message)
+            ajouter_message_memoire(session_id, 'assistant', resultat['message'])
+            
             return ChatResponse(
                 response_text=resultat['message'],
+                session_id=session_id,
                 memory_update=None,
                 debug_info={
                     'apprentissage': True,
@@ -1202,9 +1419,13 @@ async def chat_endpoint(req: ChatRequest):
                 concept="Appris par utilisateur"
             )
             
-            # Retourner une réponse d'apprentissage
+            # Ajouter à l'historique
+            ajouter_message_memoire(session_id, 'user', req.user_message)
+            ajouter_message_memoire(session_id, 'assistant', resultat['message'])
+            
             return ChatResponse(
                 response_text=resultat['message'],
+                session_id=session_id,
                 memory_update=None,
                 debug_info={
                     'apprentissage': True,
@@ -1233,11 +1454,11 @@ async def chat_endpoint(req: ChatRequest):
                 if req.debug:
                     debug_info['mot_cle_extrait'] = mot_cle
 
-                # Recherche intelligente
-                hits = await recherche_intelligente(mot_cle, LLM_CLIENT, QDRANT_CLIENT)
+                # 🆕 PHASE 6: Recherche intelligente filtrée (priorité score=1.0)
+                hits = await recherche_intelligente_filtree(mot_cle, LLM_CLIENT, QDRANT_CLIENT)
 
                 # Afficher top résultats
-                logging.info(f"📊 TOP 10 RÉSULTATS pour '{mot_cle}':")
+                logging.info(f"📊 RÉSULTATS pour '{mot_cle}':")
                 for i, h in enumerate(hits[:10], 1):
                     logging.info(f"  #{i}: score={h.score:.4f} -> {h.payload.get('element_français', 'N/A')}")
                 
@@ -1247,26 +1468,24 @@ async def chat_endpoint(req: ChatRequest):
                         for h in hits[:10]
                     ]
 
-                # Filtrer résultats pertinents
-                pertinents = [h for h in hits if h.score > RAG_SCORE_THRESHOLD]
-
-                if pertinents:
-                    logging.info(f"✅ {len(pertinents)} résultat(s) pertinent(s) (score > {RAG_SCORE_THRESHOLD})")
-                    # Format enrichi utilisant la nouvelle fonction multi-types
+                # Formater le contexte RAG
+                if hits:
+                    logging.info(f"✅ {len(hits)} résultat(s) pertinent(s)")
+                    
+                    # 🎯 Si score parfait, mettre en évidence
+                    if hits[0].score >= 0.999:
+                        contexte_rag_text = "⭐ RÉPONSE EXACTE TROUVÉE:\n"
+                    else:
+                        contexte_rag_text = "📚 Connaissances pertinentes:\n"
+                    
                     lignes = []
-                    for h in pertinents[:5]:
+                    for h in hits:
                         ligne = formater_connaissance_pour_contexte(h.payload)
                         lignes.append(ligne)
-                    contexte_rag_text = '\n'.join(lignes)
+                    contexte_rag_text += '\n'.join(lignes)
                 else:
-                    logging.warning(f"⚠️ Aucun résultat > {RAG_SCORE_THRESHOLD}")
-                    if hits:
-                        logging.info(f"💡 Utilisation des 3 meilleurs résultats")
-                        lignes = []
-                        for h in hits[:3]:
-                            ligne = formater_connaissance_pour_contexte(h.payload)
-                            lignes.append(ligne)
-                        contexte_rag_text = '\n'.join(lignes)
+                    logging.warning(f"⚠️ Aucun résultat trouvé")
+                    contexte_rag_text = "[Aucune connaissance pertinente trouvée]"
 
                 # Ajouter les traductions contextuelles
                 if traductions_contexte:
@@ -1282,11 +1501,16 @@ async def chat_endpoint(req: ChatRequest):
                     debug_info['rag_error'] = str(e)
                 rag_active = False
 
+        # 🆕 PHASE 6: Formater l'historique de conversation
+        historique_conversation = formater_historique_conversation(session_id, limite=20)
+        
         # Debug: afficher le contexte envoyé
         logging.info(f"📤 CONTEXTE ENVOYÉ AU LLM:\n{contexte_rag_text}")
+        logging.info(f"📜 HISTORIQUE CONVERSATION:\n{historique_conversation[:500]}...")
 
-        # Build prompt
-        prompt = PROMPT_SYSTEM.format(
+        # 🆕 PHASE 6: Build prompt avec mémoire intelligente
+        prompt = PROMPT_SYSTEM_INTELLIGENT.format(
+            historique_conversation=historique_conversation,
             contexte_rag=contexte_rag_text,
             user_message=req.user_message
         )
@@ -1297,7 +1521,7 @@ async def chat_endpoint(req: ChatRequest):
             model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
-            max_tokens=300
+            max_tokens=500  # Augmenté pour résumés
         )
         llm_output = llm_resp.choices[0].message.content
         logging.info("✅ Réponse LLM reçue")
@@ -1318,9 +1542,14 @@ async def chat_endpoint(req: ChatRequest):
                 return output.strip(), None
 
         response_text, memory_json = separer_texte_et_json(llm_output)
+        
+        # 🆕 PHASE 6: Ajouter à l'historique
+        ajouter_message_memoire(session_id, 'user', req.user_message)
+        ajouter_message_memoire(session_id, 'assistant', response_text)
 
         return ChatResponse(
             response_text=response_text,
+            session_id=session_id,
             memory_update=memory_json,
             debug_info=debug_info
         )
@@ -1329,9 +1558,11 @@ async def chat_endpoint(req: ChatRequest):
         logging.error(f"❌ Erreur critique dans /chat: {e}", exc_info=True)
         return ChatResponse(
             response_text=f"Erreur interne : {str(e)}",
+            session_id=session_id,
             memory_update=None,
             debug_info={'error': str(e)} if req.debug else None
         )
+
 
 # --- ENDPOINT AJOUT TRADUCTION ---
 @app.post('/add_translation', response_model=dict)
@@ -1389,6 +1620,52 @@ async def add_translation(entries: List[TranslationEntry]):
         logging.error(f"❌ Erreur ajout traduction: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
+
+# 🆕 PHASE 6: ENDPOINTS MÉMOIRE
+@app.get('/memory/{session_id}')
+async def get_memory(session_id: str, limit: int = 100):
+    """Récupère l'historique d'une session."""
+    if session_id not in CONVERSATION_MEMORY:
+        raise HTTPException(status_code=404, detail='Session non trouvée')
+    
+    historique = list(CONVERSATION_MEMORY[session_id])
+    
+    return {
+        'session_id': session_id,
+        'total_messages': len(historique),
+        'messages': historique[-limit:] if limit else historique
+    }
+
+
+@app.delete('/memory/{session_id}')
+async def clear_memory(session_id: str):
+    """Efface l'historique d'une session."""
+    if session_id in CONVERSATION_MEMORY:
+        del CONVERSATION_MEMORY[session_id]
+        logging.info(f"🗑️ Session {session_id} effacée")
+        return {'status': 'success', 'message': f'Mémoire de la session {session_id} effacée'}
+    
+    raise HTTPException(status_code=404, detail='Session non trouvée')
+
+
+@app.get('/sessions')
+async def list_sessions():
+    """Liste toutes les sessions actives."""
+    sessions_info = []
+    
+    for session_id, messages in CONVERSATION_MEMORY.items():
+        sessions_info.append({
+            'session_id': session_id,
+            'message_count': len(messages),
+            'last_message': messages[-1]['timestamp'] if messages else None
+        })
+    
+    return {
+        'total_sessions': len(CONVERSATION_MEMORY),
+        'sessions': sessions_info
+    }
+
+
 # --- ENDPOINTS UTILITAIRES ---
 @app.get('/')
 async def root():
@@ -1402,18 +1679,21 @@ async def root():
     
     return {
         'service': 'Nkotronic API',
-        'version': '2.0.0',
+        'version': '2.4.0',
+        'features': ['RAG', 'Multi-types', 'Mémoire conversationnelle (100 messages)', 'Intelligence avancée'],
         'status': 'running',
         'llm_status': 'ok' if LLM_CLIENT else 'error',
         'qdrant_status': 'ok' if QDRANT_CLIENT else 'disabled',
-        'memory_size': count
+        'memory_size': count,
+        'active_sessions': len(CONVERSATION_MEMORY)
     }
 
 @app.get('/health')
 async def health():
     health_status = {
         'llm': LLM_CLIENT is not None,
-        'qdrant': QDRANT_CLIENT is not None
+        'qdrant': QDRANT_CLIENT is not None,
+        'memory': True
     }
     
     if not all(health_status.values()):
@@ -1438,7 +1718,9 @@ async def stats():
         return {
             'total_points': count.count,
             'collection_name': COLLECTION_NAME,
-            'sample': [p.payload for p in sample[0]]
+            'sample': [p.payload for p in sample[0]],
+            'active_sessions': len(CONVERSATION_MEMORY),
+            'total_conversation_messages': sum(len(msgs) for msgs in CONVERSATION_MEMORY.values())
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1501,7 +1783,7 @@ async def transcribe_phonetic(nko_text: str):
 
 # 🆕 PHASE 4: Endpoint de test de raisonnement
 @app.post('/test_reasoning')
-async def test_reasoning(question: str, debug: bool = True):
+async def test_reasoning(question: str, session_id: Optional[str] = None, debug: bool = True):
     """Teste les capacités de raisonnement avancé de Nkotronic"""
     if LLM_CLIENT is None:
         raise HTTPException(status_code=503, detail='LLM non disponible')
@@ -1510,6 +1792,7 @@ async def test_reasoning(question: str, debug: bool = True):
         # Simuler une requête avec debug activé
         req = ChatRequest(
             user_message=question,
+            session_id=session_id,
             rag_enabled=True,
             debug=debug
         )
@@ -1519,6 +1802,7 @@ async def test_reasoning(question: str, debug: bool = True):
         return {
             'question': question,
             'response': response.response_text,
+            'session_id': response.session_id,
             'debug_info': response.debug_info,
             'reasoning_applied': True
         }
