@@ -60,30 +60,23 @@ QDRANT_CLIENT: Optional[AsyncQdrantClient] = None
 COLLECTION_NAME = "nkotronic_knowledge_base"
 VECTOR_SIZE = 1536
 EMBEDDING_MODEL = "text-embedding-ada-002"
-LLM_MODEL = "gpt-4o"  # ← Changé de "gpt-4o-mini" à "gpt-4o"
+LLM_MODEL = "gpt-4o"
 RAG_SCORE_THRESHOLD = 0.55
                             
-PROMPT_SYSTEM = (
-    "Tu es Nkotronic, assistant N'ko.\n\n"
-    
-    "CONTEXTE:\n"
-    "{{contexte_rag}}\n\n"
-    
-    "RÈGLES ABSOLUES:\n"
-    "1. Si tu vois 'TRADUCTIONS CONTEXTUELLES' ci-dessus, tu DOIS les utiliser dans ta réponse\n"
-    "2. Si la question est une salutation simple (bonjour, salut), réponds poliment\n"
-    "3. Si c'est une question personnelle (tu vas bien, qui es-tu), réponds naturellement\n"
-    "4. Si c'est une demande de traduction, cherche dans le contexte ci-dessus\n\n"
-    
-    "EXEMPLES:\n"
-    "Q: 'Bonjour' → R: 'Bonjour ! Comment puis-je t\\'aider ?'\n"
-    "Q: 'Tu vas bien ?' → R: 'Je fonctionne bien, merci ! Et toi ?'\n"
-    "Q: 'C\\'est quoi ߛߓߍߛߎ߲ ?' + CONTEXTE: 'ߛߓߍߛߎ߲ = lettre' → R: 'ߛߓߍߛߎ߲ signifie lettre en français.'\n\n"
-    
-    "Question utilisateur: {{user_message}}\n\n"
-    
-    "Réponds maintenant:"
-)
+PROMPT_SYSTEM = """Tu es Nkotronic, assistant N'ko amical et efficace.
+
+CONTEXTE DISPONIBLE:
+{contexte_rag}
+
+INSTRUCTIONS:
+- Utilise DIRECTEMENT les traductions du contexte ci-dessus
+- Si aucune traduction n'est disponible, dis-le simplement
+- Réponds de manière naturelle et conversationnelle
+- Pour les salutations, reste poli et simple
+
+Question: {user_message}
+
+Réponds maintenant de manière claire et directe:"""
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[dict]:
@@ -375,7 +368,7 @@ async def chat_endpoint(req: ChatRequest):
 
     debug_info = {} if req.debug else None
     rag_active = req.rag_enabled and (QDRANT_CLIENT is not None)
-    contexte_rag_text = ''
+    contexte_rag_text = '[Aucune donnée en mémoire]'
 
     try:
         if rag_active:
@@ -415,35 +408,33 @@ async def chat_endpoint(req: ChatRequest):
 
                 if pertinents:
                     logging.info(f"✅ {len(pertinents)} résultat(s) pertinent(s) (score > {RAG_SCORE_THRESHOLD})")
-                    contexte_connaissances = '\n'.join(
-                        json.dumps(h.payload, ensure_ascii=False) 
-                        for h in pertinents[:5]
-                    )
+                    # Format simplifié et clair
+                    lignes = []
+                    for h in pertinents[:5]:
+                        fr = h.payload.get('element_français', '')
+                        nko = h.payload.get('element_nko', '')
+                        concept = h.payload.get('concept_identifie', '')
+                        lignes.append(f"- {fr} = {nko} ({concept})")
+                    contexte_rag_text = '\n'.join(lignes)
                 else:
                     logging.warning(f"⚠️ Aucun résultat > {RAG_SCORE_THRESHOLD}")
                     if hits:
                         logging.info(f"💡 Utilisation des 3 meilleurs résultats")
-                        contexte_connaissances = '\n'.join(
-                            json.dumps(h.payload, ensure_ascii=False) 
-                            for h in hits[:3]
-                        )
-                    else:
-                        contexte_connaissances = ""
+                        lignes = []
+                        for h in hits[:3]:
+                            fr = h.payload.get('element_français', '')
+                            nko = h.payload.get('element_nko', '')
+                            concept = h.payload.get('concept_identifie', '')
+                            lignes.append(f"- {fr} = {nko} ({concept})")
+                        contexte_rag_text = '\n'.join(lignes)
 
-                # Construire contexte enrichi
-                contexte_rag_text = ""
-                
+                # Ajouter les traductions contextuelles
                 if traductions_contexte:
-                    contexte_rag_text += "═══ TRADUCTIONS CONTEXTUELLES ═══\n"
-                    for trad in traductions_contexte:
-                        contexte_rag_text += f"- {trad['nko']} = {trad['français']}\n"
-                    contexte_rag_text += "\n"
-                
-                contexte_rag_text += "═══ CONNAISSANCES PERTINENTES ═══\n"
-                if contexte_connaissances:
-                    contexte_rag_text += contexte_connaissances
-                else:
-                    contexte_rag_text += "[Aucune connaissance trouvée]"
+                    contexte_extra = '\n'.join(
+                        f"- {t['français']} = {t['nko']}"
+                        for t in traductions_contexte
+                    )
+                    contexte_rag_text = contexte_extra + '\n' + contexte_rag_text
 
             except Exception as e:
                 logging.error(f"❌ Erreur RAG: {e}", exc_info=True)
@@ -452,11 +443,11 @@ async def chat_endpoint(req: ChatRequest):
                 rag_active = False
 
         # Debug: afficher le contexte envoyé
-        logging.info(f"📤 CONTEXTE ENVOYÉ AU LLM:\n{contexte_rag_text[:500]}")
+        logging.info(f"📤 CONTEXTE ENVOYÉ AU LLM:\n{contexte_rag_text}")
 
         # Build prompt
         prompt = PROMPT_SYSTEM.format(
-            contexte_rag=contexte_rag_text if contexte_rag_text else '[Aucune traduction trouvée en mémoire]',
+            contexte_rag=contexte_rag_text,
             user_message=req.user_message
         )
 
@@ -464,8 +455,8 @@ async def chat_endpoint(req: ChatRequest):
         llm_resp = await asyncio.to_thread(
             LLM_CLIENT.chat.completions.create,
             model=LLM_MODEL,
-            messages=[{"role": "system", "content": prompt}],
-            temperature=0.7,  # ← Changé de 0.3 à 0.7
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
             max_tokens=300
         )
         llm_output = llm_resp.choices[0].message.content
