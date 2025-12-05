@@ -422,7 +422,7 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
             
             # STRATÉGIE 2: Si pas de match exact, prendre le meilleur score
             if not any(t['nko'] == nko_word for t in traductions):
-                if results.points and results.points[0].score > 0.85:
+                if results.points and results.points[0].score > 0.80:  # Seuil abaissé à 0.80
                     best = results.points[0]
                     fr = best.payload.get('element_français')
                     nko_found = best.payload.get('element_nko')
