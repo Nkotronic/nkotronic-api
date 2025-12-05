@@ -60,7 +60,7 @@ QDRANT_CLIENT: Optional[AsyncQdrantClient] = None
 COLLECTION_NAME = "nkotronic_knowledge_base"
 VECTOR_SIZE = 1536
 EMBEDDING_MODEL = "text-embedding-ada-002"
-LLM_MODEL = "gpt-4o-mini"
+LLM_MODEL = "gpt-4o"  # ← Changé de "gpt-4o-mini" à "gpt-4o"
 RAG_SCORE_THRESHOLD = 0.55
                             
 PROMPT_SYSTEM = (
