@@ -452,6 +452,176 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
     
     return question_enrichie, traductions
 
+
+# --- PHASE 5: DÉTECTION D'APPRENTISSAGE ---
+def detecter_apprentissage(message: str) -> Optional[Dict[str, str]]:
+    """
+    Détecte si le message est une demande d'apprentissage.
+    
+    Patterns supportés:
+    - "apprends que X = Y"
+    - "X = Y"
+    - "X signifie Y"
+    - "Y se dit X en N'ko"
+    - "apprends: X = Y"
+    - "mémorise que X = Y"
+    """
+    import re
+    
+    # Nettoyer le message
+    message_clean = message.strip().lower()
+    
+    # Pattern 1: "apprends [que] X = Y" ou "mémorise [que] X = Y"
+    pattern1 = r'(?:apprends?|mémorise[rz]?|enregistre[rz]?)\s*(?:que)?\s*[:;]?\s*(.+?)\s*[=:]\s*(.+)'
+    
+    # Pattern 2: "X = Y" (simple)
+    pattern2 = r'^([^\s=]+)\s*[=:]\s*([^\s=]+)$'
+    
+    # Pattern 3: "X signifie Y"
+    pattern3 = r'(.+?)\s+signifie\s+(.+)'
+    
+    # Pattern 4: "Y se dit X en N'ko" ou "Y se dit X en nko"
+    pattern4 = r'(.+?)\s+se\s+dit\s+(.+?)\s+en\s+n.?ko'
+    
+    # Tester les patterns
+    for pattern in [pattern1, pattern3, pattern4, pattern2]:
+        match = re.search(pattern, message_clean, re.IGNORECASE)
+        if match:
+            word1, word2 = match.groups()
+            word1 = word1.strip()
+            word2 = word2.strip()
+            
+            # Déterminer quel est le N'ko et quel est le français
+            import unicodedata
+            nko_pattern = re.compile(r'[\u07C0-\u07FF]+')
+            
+            has_nko_1 = bool(nko_pattern.search(word1))
+            has_nko_2 = bool(nko_pattern.search(word2))
+            
+            if has_nko_1 and not has_nko_2:
+                # word1 est N'ko, word2 est français
+                return {
+                    'nko': word1,
+                    'français': word2,
+                    'pattern': 'détecté'
+                }
+            elif has_nko_2 and not has_nko_1:
+                # word2 est N'ko, word1 est français
+                return {
+                    'nko': word2,
+                    'français': word1,
+                    'pattern': 'détecté'
+                }
+    
+    return None
+
+
+async def apprendre_mot(
+    nko_word: str,
+    fr_word: str,
+    llm_client: OpenAI,
+    qdrant_client: AsyncQdrantClient,
+    concept: str = "Appris par utilisateur",
+    user_context: Optional[Dict] = None
+) -> Dict[str, any]:
+    """
+    Apprend un nouveau mot et le stocke dans Qdrant.
+    
+    Args:
+        nko_word: Mot en N'ko
+        fr_word: Traduction française
+        llm_client: Client OpenAI
+        qdrant_client: Client Qdrant
+        concept: Catégorie du mot
+        user_context: Contexte additionnel fourni par l'utilisateur
+    
+    Returns:
+        Dict avec status et message
+    """
+    try:
+        import unicodedata
+        
+        # Normaliser les mots
+        def normaliser(texte: str) -> str:
+            texte = unicodedata.normalize('NFD', texte)
+            texte = unicodedata.normalize('NFC', texte)
+            return ' '.join(texte.split()).strip()
+        
+        nko_word_clean = normaliser(nko_word)
+        fr_word_clean = normaliser(fr_word)
+        
+        logging.info(f"📚 Apprentissage: {nko_word_clean} = {fr_word_clean}")
+        
+        # Vérifier si le mot existe déjà
+        emb_resp = await asyncio.to_thread(
+            llm_client.embeddings.create,
+            input=[fr_word_clean],
+            model=EMBEDDING_MODEL
+        )
+        vector = emb_resp.data[0].embedding
+        
+        # Chercher dans Qdrant
+        results = await qdrant_client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=vector,
+            limit=5,
+            with_payload=True
+        )
+        
+        # Vérifier match exact
+        for point in results.points:
+            if (normaliser(point.payload.get('element_nko', '')) == nko_word_clean and
+                normaliser(point.payload.get('element_français', '')) == fr_word_clean):
+                logging.info(f"ℹ️ Ce mot existe déjà dans la base")
+                return {
+                    'status': 'exists',
+                    'message': f"Je connais déjà ce mot : {nko_word_clean} = {fr_word_clean}",
+                    'word_nko': nko_word_clean,
+                    'word_fr': fr_word_clean
+                }
+        
+        # Créer l'entrée
+        nouvelle_entree = {
+            'element_français': fr_word_clean,
+            'element_nko': nko_word_clean,
+            'concept_identifie': concept,
+            'fait_texte': user_context.get('description') if user_context else None,
+            'exemples': user_context.get('exemples') if user_context else None,
+            'appris_par': 'utilisateur',
+            'timestamp': str(asyncio.get_event_loop().time())
+        }
+        
+        # Créer le point Qdrant
+        point_id = str(uuid.uuid4())
+        point = PointStruct(
+            id=point_id,
+            vector=vector,
+            payload=nouvelle_entree
+        )
+        
+        # Insérer dans Qdrant
+        await qdrant_client.upsert(
+            collection_name=COLLECTION_NAME,
+            points=[point]
+        )
+        
+        logging.info(f"✅ Mot appris et stocké: {nko_word_clean} = {fr_word_clean}")
+        
+        return {
+            'status': 'success',
+            'message': f"✅ J'ai appris : {nko_word_clean} = {fr_word_clean}",
+            'word_nko': nko_word_clean,
+            'word_fr': fr_word_clean,
+            'point_id': point_id
+        }
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de l'apprentissage: {e}")
+        return {
+            'status': 'error',
+            'message': f"❌ Erreur lors de l'apprentissage: {str(e)}"
+        }
+
 # 🆕 PHASE 3 : FONCTIONS DE TRANSCRIPTION PHONÉTIQUE
 def transcrire_nko_phonetique(mot_nko: str) -> str:
     """Transcrit un mot N'ko en phonétique latine."""
@@ -513,6 +683,33 @@ async def chat_endpoint(req: ChatRequest):
     contexte_rag_text = '[Aucune donnée en mémoire]'
 
     try:
+        # PHASE 5: Détecter si c'est une demande d'apprentissage
+        apprentissage_info = detecter_apprentissage(req.user_message)
+        
+        if apprentissage_info:
+            # C'est une demande d'apprentissage !
+            logging.info(f"🎓 Apprentissage détecté: {apprentissage_info}")
+            
+            resultat = await apprendre_mot(
+                nko_word=apprentissage_info['nko'],
+                fr_word=apprentissage_info['français'],
+                llm_client=LLM_CLIENT,
+                qdrant_client=QDRANT_CLIENT,
+                concept="Appris par utilisateur"
+            )
+            
+            # Retourner une réponse d'apprentissage
+            return ChatResponse(
+                response_text=resultat['message'],
+                memory_update=None,
+                debug_info={
+                    'apprentissage': True,
+                    'status': resultat['status'],
+                    'details': resultat
+                } if req.debug else None
+            )
+        
+        # Si pas d'apprentissage, continuer normalement
         if rag_active:
             try:
                 # Pré-traiter la question
