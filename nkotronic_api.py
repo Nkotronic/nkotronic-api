@@ -4,7 +4,7 @@ import logging
 import json
 import uuid
 from contextlib import asynccontextmanager
-from typing import Optional, AsyncIterator, List
+from typing import Optional, AsyncIterator, List, Dict
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -62,26 +62,71 @@ VECTOR_SIZE = 1536
 EMBEDDING_MODEL = "text-embedding-ada-002"
 LLM_MODEL = "gpt-4o"
 RAG_SCORE_THRESHOLD = 0.55
+
+# 🆕 PHASE 3 : MAPPING PHONÉTIQUE N'KO
+NKO_PHONETIC_MAP = {
+    'ߊ': 'a', 'ߋ': 'e', 'ߌ': 'i', 'ߍ': 'ɛ', 'ߎ': 'u', 'ߏ': 'o', 'ߐ': 'ɔ',
+    'ߓ': 'b', 'ߔ': 'p', 'ߕ': 't', 'ߖ': 'j', 'ߗ': 'ch', 'ߘ': 'd',
+    'ߙ': 'r', 'ߚ': 'rr', 'ߛ': 's', 'ߜ': 'g', 'ߝ': 'f', 'ߞ': 'k',
+    'ߟ': 'l', 'ߠ': 'm', 'ߡ': 'n', 'ߢ': 'ny', 'ߣ': 'ɲ', 'ߤ': 'h',
+    'ߥ': 'w', 'ߦ': 'y', 'ߧ': 'gn', 'ߨ': 'ng',
+    '߫': '', '߬': '', '߭': '', '߮': '', '߯': '', '߰': '', '߱': '', '߲': 'n',
+    '߀': '0', '߁': '1', '߂': '2', '߃': '3', '߄': '4',
+    '߅': '5', '߆': '6', '߇': '7', '߈': '8', '߉': '9'
+}
                             
-PROMPT_SYSTEM = """Tu es Nkotronic, assistant N'ko amical et efficace.
+PROMPT_SYSTEM = """Tu es Nkotronic, assistant N'ko amical, efficace et intelligent.
 
 CONTEXTE DISPONIBLE:
 {contexte_rag}
 
-INSTRUCTIONS:
+INSTRUCTIONS DE BASE:
 - Utilise les traductions du contexte UNIQUEMENT si la question le demande
 - N'utilise PAS les salutations du contexte sauf si l'utilisateur dit "bonjour" ou "salut"
 - Réponds naturellement sans ajouter de salutations inutiles
 - Si c'est une question de traduction, donne directement la réponse
 
-EXEMPLES:
-Q: "tu vas bien ?" → R: "Je vais bien, merci ! Et toi ?"
-Q: "c'est quoi ߛߓߍߛߎ߲ ?" → R: "ߛߓߍߛߎ߲ signifie 'lettre' en français."
-Q: "bonjour" → R: "ߊߟߎ߫ ߣߌ߫ ߖߐ ! Comment puis-je t'aider ?"
+🧠 CAPACITÉS DE RAISONNEMENT AVANCÉ (PHASE 4):
+
+1. DÉDUCTION LINGUISTIQUE:
+   - Si on te demande le pluriel d'un mot que tu connais, essaie de le déduire selon les règles N'ko
+   - Si on te demande l'antonyme, raisonne à partir du concept
+   - Si on te demande un synonyme, cherche dans le même champ sémantique
+
+2. ANALYSE CONTEXTUELLE:
+   - Utilise le champ "fait_texte" pour enrichir ta réponse avec des explications
+   - Utilise "valeur_numerique" pour les conversions et calculs si nécessaire
+   - Utilise "exemples" pour illustrer l'usage du mot
+
+3. INFÉRENCE CULTURELLE:
+   - Si la question porte sur un concept abstrait, explique son contexte culturel N'ko
+   - Fais des liens entre concepts similaires dans ta base de connaissances
+
+4. GESTION DES LACUNES:
+   - Si tu ne connais pas exactement la réponse mais as des informations proches, dis-le
+   - Propose des alternatives ou mots apparentés
+   - Sois honnête sur les limites de tes connaissances
+
+EXEMPLES DE RAISONNEMENT:
+
+Q: "tu vas bien ?" 
+→ R: "Je vais bien, merci ! Et toi ?"
+
+Q: "c'est quoi ߛߓߍߘߋ߲ ?" + CONTEXTE: "lettre = ߛߓߍߘߋ߲"
+→ R: "ߛߓߍߘߋ߲ signifie 'lettre' en français."
+
+Q: "bonjour" 
+→ R: "ߊߟߎ߫ ߣߌ߫ ߖߐ ! Comment puis-je t'aider ?"
+
+Q: "comment dire 'paix' en nko ?" + CONTEXTE: "paix = ߖߐ (concept_abstrait)"
+→ R: "En N'ko, 'paix' se dit ߖߐ (jo). C'est un concept important dans la culture mandingue."
+
+Q: "quel est le contraire de paix ?" + CONTEXTE: "paix = ߖߐ"
+→ R: "Le contraire de paix (ߖߐ) serait la guerre. Bien que je n'aie pas la traduction exacte en mémoire, en N'ko on pourrait dire 'ߞߍ߬ߟߍ' (kɛlɛ)."
 
 Question: {user_message}
 
-Réponds maintenant:"""
+Réponds maintenant avec intelligence et contexte:"""
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[dict]:
@@ -172,6 +217,16 @@ class TranslationEntry(BaseModel):
     element_français: str = Field(..., description="Le mot ou expression en français.")
     element_nko: str = Field(..., description="La traduction correspondante en N'ko.")
     concept_identifie: str = Field("Général", description="Le domaine ou concept identifié.")
+    
+    # 🆕 PHASE 2 : ENRICHISSEMENT DU MODÈLE
+    valeur_numerique: Optional[float] = Field(None, description="Valeur numérique si applicable (ex: chiffres, dates, mesures)")
+    fait_texte: Optional[str] = Field(None, description="Fait ou information textuelle associée (définition, contexte, usage)")
+    
+    # 🆕 Métadonnées additionnelles
+    exemples: Optional[List[str]] = Field(None, description="Exemples d'utilisation en contexte")
+    synonymes: Optional[List[str]] = Field(None, description="Synonymes en N'ko")
+    categorie_grammaticale: Optional[str] = Field(None, description="nom, verbe, adjectif, adverbe, etc.")
+    niveau_langue: Optional[str] = Field(None, description="formel, courant, familier")
 
 # --- FONCTION D'EXTRACTION MOT-CLÉ ---
 async def extraire_mot_cle(user_message: str, llm_client: OpenAI) -> str:
@@ -363,6 +418,54 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
     
     return question_enrichie, traductions
 
+# 🆕 PHASE 3 : FONCTIONS DE TRANSCRIPTION PHONÉTIQUE
+def transcrire_nko_phonetique(mot_nko: str) -> str:
+    """Transcrit un mot N'ko en phonétique latine."""
+    transcription = ""
+    for char in mot_nko:
+        transcription += NKO_PHONETIC_MAP.get(char, char)
+    return transcription
+
+def decomposer_syllabe_nko(mot_nko: str) -> List[str]:
+    """Décompose un mot N'ko en syllabes phonétiques."""
+    import re
+    
+    # Voyelles N'ko
+    voyelles = 'ߊߋߌߍߎߏߐ'
+    
+    # Pattern: (Consonne)+ Voyelle (Modificateurs)*
+    pattern = f'[^{voyelles}]*[{voyelles}][߲߫߬߭߮߯߰߱]*'
+    
+    syllabes = re.findall(pattern, mot_nko)
+    
+    # Si rien trouvé, retourner le mot entier
+    if not syllabes:
+        return [mot_nko]
+    
+    return syllabes
+
+def recherche_phonetique(query: str, mot_nko: str) -> float:
+    """Calcule un score de similarité phonétique entre query et mot N'ko."""
+    # Transcrire le mot N'ko
+    transcription = transcrire_nko_phonetique(mot_nko)
+    
+    # Normaliser les deux chaînes
+    query_norm = query.lower().strip()
+    transcription_norm = transcription.lower().strip()
+    
+    # Score basique : distance de Levenshtein simplifiée
+    if query_norm == transcription_norm:
+        return 1.0
+    
+    if query_norm in transcription_norm or transcription_norm in query_norm:
+        return 0.8
+    
+    # Calcul de similarité basique
+    matches = sum(1 for a, b in zip(query_norm, transcription_norm) if a == b)
+    max_len = max(len(query_norm), len(transcription_norm))
+    
+    return matches / max_len if max_len > 0 else 0.0
+
 # --- ENDPOINT CHAT ---
 @app.post('/chat', response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
@@ -413,13 +516,35 @@ async def chat_endpoint(req: ChatRequest):
 
                 if pertinents:
                     logging.info(f"✅ {len(pertinents)} résultat(s) pertinent(s) (score > {RAG_SCORE_THRESHOLD})")
-                    # Format simplifié et clair
+                    # Format enrichi utilisant tous les champs disponibles
                     lignes = []
                     for h in pertinents[:5]:
                         fr = h.payload.get('element_français', '')
                         nko = h.payload.get('element_nko', '')
                         concept = h.payload.get('concept_identifie', '')
-                        lignes.append(f"- {fr} = {nko} ({concept})")
+                        
+                        # Base
+                        ligne = f"- {fr} = {nko} ({concept})"
+                        
+                        # 🆕 Enrichissements Phase 2
+                        valeur_num = h.payload.get('valeur_numerique')
+                        if valeur_num is not None:
+                            ligne += f" | valeur: {valeur_num}"
+                        
+                        fait = h.payload.get('fait_texte')
+                        if fait:
+                            ligne += f" | info: {fait}"
+                        
+                        exemples = h.payload.get('exemples')
+                        if exemples:
+                            ligne += f" | ex: {exemples[0] if isinstance(exemples, list) else exemples}"
+                        
+                        # 🆕 Phase 3: Transcription phonétique
+                        phonetique = transcrire_nko_phonetique(nko)
+                        if phonetique and phonetique != nko:
+                            ligne += f" | prononciation: {phonetique}"
+                        
+                        lignes.append(ligne)
                     contexte_rag_text = '\n'.join(lignes)
                 else:
                     logging.warning(f"⚠️ Aucun résultat > {RAG_SCORE_THRESHOLD}")
@@ -430,7 +555,19 @@ async def chat_endpoint(req: ChatRequest):
                             fr = h.payload.get('element_français', '')
                             nko = h.payload.get('element_nko', '')
                             concept = h.payload.get('concept_identifie', '')
-                            lignes.append(f"- {fr} = {nko} ({concept})")
+                            
+                            ligne = f"- {fr} = {nko} ({concept})"
+                            
+                            # Enrichissements
+                            fait = h.payload.get('fait_texte')
+                            if fait:
+                                ligne += f" | info: {fait}"
+                            
+                            phonetique = transcrire_nko_phonetique(nko)
+                            if phonetique and phonetique != nko:
+                                ligne += f" | prononciation: {phonetique}"
+                            
+                            lignes.append(ligne)
                         contexte_rag_text = '\n'.join(lignes)
 
                 # Ajouter les traductions contextuelles
@@ -642,6 +779,50 @@ async def search_direct(word: str):
                 }
                 for h in hits[:10]
             ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 🆕 PHASE 3: Endpoint de test phonétique
+@app.post('/transcribe_phonetic')
+async def transcribe_phonetic(nko_text: str):
+    """Transcrit un texte N'ko en phonétique latine"""
+    try:
+        transcription = transcrire_nko_phonetique(nko_text)
+        syllabes = decomposer_syllabe_nko(nko_text)
+        syllabes_phonetiques = [transcrire_nko_phonetique(s) for s in syllabes]
+        
+        return {
+            'nko_original': nko_text,
+            'transcription_complete': transcription,
+            'syllabes_nko': syllabes,
+            'syllabes_phonetiques': syllabes_phonetiques
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 🆕 PHASE 4: Endpoint de test de raisonnement
+@app.post('/test_reasoning')
+async def test_reasoning(question: str, debug: bool = True):
+    """Teste les capacités de raisonnement avancé de Nkotronic"""
+    if LLM_CLIENT is None:
+        raise HTTPException(status_code=503, detail='LLM non disponible')
+    
+    try:
+        # Simuler une requête avec debug activé
+        req = ChatRequest(
+            user_message=question,
+            rag_enabled=True,
+            debug=debug
+        )
+        
+        response = await chat_endpoint(req)
+        
+        return {
+            'question': question,
+            'response': response.response_text,
+            'debug_info': response.debug_info,
+            'reasoning_applied': True
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
