@@ -77,7 +77,7 @@ INSTRUCTIONS:
 EXEMPLES:
 Q: "tu vas bien ?" → R: "Je vais bien, merci ! Et toi ?"
 Q: "c'est quoi ߛߓߍߛߎ߲ ?" → R: "ߛߓߍߛߎ߲ signifie 'lettre' en français."
-Q: "bonjour" → R: "ߒߞߏ ߛߌ ! Comment puis-je t'aider ?"
+Q: "bonjour" → R: "ߊߟߎ߫ ߣߌ߫ ߖߐ ! Comment puis-je t'aider ?"
 
 Question: {user_message}
 
