@@ -97,6 +97,7 @@ PROMPT_SYSTEM = (
     "   → Réponds naturellement, sois convivial et humain\n"
     "   → Glisse parfois des touches panafricaines si le contexte s'y prête\n"
     "   → Exemple : \"Bonjour\" → \"Alu ni djö ! Prêt à apprendre le N'ko et à rêver d'une Afrique unie ?\"\n\n"
+    "   → Ne dis pas \"Alu ni djö\"n"
     
     "2️⃣ TRADUCTION / RECHERCHE (\"comment dit-on X\", \"traduis Y\", \"X en n'ko\")\n"
     "   → Utilise ta mémoire ci-dessous pour trouver la traduction\n"
@@ -169,6 +170,31 @@ PROMPT_SYSTEM = (
     "Message de l'utilisateur : {user_message}\n\n"
     
     "Réponds maintenant en tant que Nkotronic, ambassadeur du N'ko et visionnaire de l'Afrique unie :"
+
+    "Tu es Nkotronic (ߒߞߏߕߙߏߣߌߞ), une intelligence artificielle dédiée à la langue N'ko et à l'unité africaine.\n\n"
+        
+    "═══ RAISONNEMENT AVEC TRADUCTIONS CONTEXTUELLES ═══\n"
+    "Quand tu reçois des TRADUCTIONS CONTEXTUELLES dans ta mémoire, utilise-les pour RAISONNER :\n\n"
+    
+    "Exemple 1 :\n"
+    "TRADUCTIONS CONTEXTUELLES:\n"
+    "- ߛߓߍߛߎ߲ = lettre\n\n"
+    "CONNAISSANCES PERTINENTES:\n"
+    "{'element_français': 'lettre', 'element_nko': 'ߛߓߍߛߎ߲'}\n\n"
+    "Question: 'C\\'est quoi ߛߓߍߛߎ߲ ?'\n"
+    "Raisonnement: ߛߓߍߛߎ߲ signifie 'lettre' selon les traductions contextuelles.\n"
+    "Réponse: 'ߛߓߍߛߎ߲ se traduit par \"lettre\" en français.'\n\n"
+    
+    "RÈGLE : Connecte toujours les traductions contextuelles avec les connaissances pertinentes.\n\n"
+    
+    "═══ MÉMOIRE ACTUELLE ═══\n"
+    "{contexte_rag}\n\n"
+    
+    "═══ QUESTION ═══\n"
+    "{user_message}\n\n"
+        
+    "Réponds maintenant :"
+
 )
 
 @asynccontextmanager
@@ -402,6 +428,148 @@ async def recherche_intelligente(mot_cle: str, llm_client: OpenAI, qdrant_client
     
     return unique_results
 
+async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_client: AsyncQdrantClient):
+    """
+    Détecte les mots N'ko dans la question et les traduit pour enrichir la recherche.
+    
+    Retourne:
+        - question_enrichie: Question avec traductions entre parenthèses
+        - traductions_contexte: Liste des traductions trouvées
+    """
+    import re
+    
+    # Regex pour détecter les caractères N'ko (U+07C0 à U+07FF)
+    nko_pattern = re.compile(r'[\u07C0-\u07FF]+')
+    nko_words = nko_pattern.findall(user_message)
+    
+    if not nko_words:
+        # Pas de mots N'ko détectés
+        return user_message, []
+    
+    logging.info(f"🔍 Mots N'ko détectés dans la question: {nko_words}")
+    
+    # Pour chaque mot N'ko, chercher sa traduction dans Qdrant
+    traductions = []
+    for nko_word in nko_words:
+        try:
+            # Recherche par scroll avec filtre sur element_nko
+            results = await qdrant_client.scroll(
+                collection_name=COLLECTION_NAME,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="element_nko",
+                            match=models.MatchValue(value=nko_word)
+                        )
+                    ]
+                ),
+                limit=3,
+                with_payload=True
+            )
+            
+            if results[0]:
+                for point in results[0]:
+                    fr = point.payload.get('element_français')
+                    if fr:
+                        traductions.append({
+                            'nko': nko_word,
+                            'français': fr,
+                            'payload': point.payload
+                        })
+                        logging.info(f"✅ Traduction trouvée: {nko_word} = {fr}")
+                        break
+            else:
+                logging.warning(f"⚠️ Aucune traduction trouvée pour: {nko_word}")
+                
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la recherche de {nko_word}: {e}")
+    
+    # Enrichir la question en ajoutant les traductions entre parenthèses
+    question_enrichie = user_message
+    
+    for trad in traductions:
+        # Remplacer le mot N'ko par "mot_nko (traduction_française)"
+        question_enrichie = question_enrichie.replace(
+            trad['nko'], 
+            f"{trad['nko']} ({trad['français']})"
+        )
+    
+    if traductions:
+        logging.info(f"💡 Question enrichie: {question_enrichie}")
+    
+    return question_enrichie, traductions
+
+async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_client: AsyncQdrantClient):
+    """
+    Détecte les mots N'ko dans la question et les traduit pour enrichir la recherche.
+    
+    Retourne:
+        - question_enrichie: Question avec traductions entre parenthèses
+        - traductions_contexte: Liste des traductions trouvées
+    """
+    import re
+    
+    # Regex pour détecter les caractères N'ko (U+07C0 à U+07FF)
+    nko_pattern = re.compile(r'[\u07C0-\u07FF]+')
+    nko_words = nko_pattern.findall(user_message)
+    
+    if not nko_words:
+        # Pas de mots N'ko détectés
+        return user_message, []
+    
+    logging.info(f"🔍 Mots N'ko détectés dans la question: {nko_words}")
+    
+    # Pour chaque mot N'ko, chercher sa traduction dans Qdrant
+    traductions = []
+    for nko_word in nko_words:
+        try:
+            # Recherche par scroll avec filtre sur element_nko
+            results = await qdrant_client.scroll(
+                collection_name=COLLECTION_NAME,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="element_nko",
+                            match=models.MatchValue(value=nko_word)
+                        )
+                    ]
+                ),
+                limit=3,
+                with_payload=True
+            )
+            
+            if results[0]:
+                for point in results[0]:
+                    fr = point.payload.get('element_français')
+                    if fr:
+                        traductions.append({
+                            'nko': nko_word,
+                            'français': fr,
+                            'payload': point.payload
+                        })
+                        logging.info(f"✅ Traduction trouvée: {nko_word} = {fr}")
+                        break
+            else:
+                logging.warning(f"⚠️ Aucune traduction trouvée pour: {nko_word}")
+                
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la recherche de {nko_word}: {e}")
+    
+    # Enrichir la question en ajoutant les traductions entre parenthèses
+    question_enrichie = user_message
+    
+    for trad in traductions:
+        # Remplacer le mot N'ko par "mot_nko (traduction_française)"
+        question_enrichie = question_enrichie.replace(
+            trad['nko'], 
+            f"{trad['nko']} ({trad['français']})"
+        )
+    
+    if traductions:
+        logging.info(f"💡 Question enrichie: {question_enrichie}")
+    
+    return question_enrichie, traductions
+
 # --- ENDPOINT CHAT AMÉLIORÉ ---
 @app.post('/chat', response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
@@ -416,8 +584,19 @@ async def chat_endpoint(req: ChatRequest):
 
     if rag_active:
         try:
-            # 1. EXTRAIRE LE MOT-CLÉ
-            mot_cle = await extraire_mot_cle(req.user_message, LLM_CLIENT)
+            # ✅ NOUVEAU : Pré-traiter la question pour détecter les mots N'ko
+            question_enrichie, traductions_contexte = await pretraiter_question(
+                req.user_message, 
+                LLM_CLIENT, 
+                QDRANT_CLIENT
+            )
+            
+            if req.debug:
+                debug_info['question_enrichie'] = question_enrichie
+                debug_info['traductions_contexte'] = traductions_contexte
+            
+            # 1. EXTRAIRE LE MOT-CLÉ (de la question enrichie)
+            mot_cle = await extraire_mot_cle(question_enrichie, LLM_CLIENT)
             if req.debug:
                 debug_info['mot_cle_extrait'] = mot_cle
 
@@ -427,7 +606,7 @@ async def chat_endpoint(req: ChatRequest):
             # 3. AFFICHER TOP RÉSULTATS
             logging.info(f"📊 TOP 10 RÉSULTATS pour '{mot_cle}':")
             for i, h in enumerate(hits[:10], 1):
-                logging.info(f"  #{i}: score={h.score:.4f} -> {h.payload.get('element_français', 'N/A')}")
+                logging.info(f"  #{i}: score={h.score:.4f} -> {h.payload.get('element_français', 'N/A')}")
             
             if req.debug:
                 debug_info['top_results'] = [
@@ -440,70 +619,41 @@ async def chat_endpoint(req: ChatRequest):
 
             if pertinents:
                 logging.info(f"✅ {len(pertinents)} résultat(s) pertinent(s) (score > {RAG_SCORE_THRESHOLD})")
-                # Prendre les 5 meilleurs
-                contexte_rag_text = '\n'.join(
+                contexte_connaissances = '\n'.join(
                     json.dumps(h.payload, ensure_ascii=False) 
                     for h in pertinents[:5]
                 )
             else:
                 logging.warning(f"⚠️ Aucun résultat > {RAG_SCORE_THRESHOLD}")
-                # Prendre les 3 meilleurs même sous le seuil
                 if hits:
-                    logging.info(f"💡 Utilisation des 3 meilleurs résultats (scores: {[h.score for h in hits[:3]]})")
-                    contexte_rag_text = '\n'.join(
+                    logging.info(f"💡 Utilisation des 3 meilleurs résultats")
+                    contexte_connaissances = '\n'.join(
                         json.dumps(h.payload, ensure_ascii=False) 
                         for h in hits[:3]
                     )
+                else:
+                    contexte_connaissances = ""
+
+            # ✅ NOUVEAU : Construire un contexte enrichi avec les traductions
+            contexte_rag_text = ""
+            
+            if traductions_contexte:
+                contexte_rag_text += "═══ TRADUCTIONS CONTEXTUELLES ═══\n"
+                for trad in traductions_contexte:
+                    contexte_rag_text += f"- {trad['nko']} = {trad['français']}\n"
+                contexte_rag_text += "\n"
+            
+            contexte_rag_text += "═══ CONNAISSANCES PERTINENTES ═══\n"
+            if contexte_connaissances:
+                contexte_rag_text += contexte_connaissances
+            else:
+                contexte_rag_text += "[Aucune connaissance trouvée]"
 
         except Exception as e:
             logging.error(f"❌ Erreur RAG: {e}", exc_info=True)
             if req.debug:
                 debug_info['rag_error'] = str(e)
             rag_active = False
-
-    # Build prompt
-    prompt = PROMPT_SYSTEM.format(
-        contexte_rag=contexte_rag_text if contexte_rag_text else '[Aucune traduction trouvée en mémoire]',
-        user_message=req.user_message
-    )
-
-    # Call LLM
-    try:
-        llm_resp = await asyncio.to_thread(
-            LLM_CLIENT.chat.completions.create,
-            model=LLM_MODEL,
-            messages=[{"role": "system", "content": prompt}],
-            temperature=0.3,
-            max_tokens=300
-        )
-        llm_output = llm_resp.choices[0].message.content
-        logging.info("✅ Réponse LLM reçue")
-    except Exception as e:
-        logging.error(f"❌ Erreur LLM: {e}")
-        raise HTTPException(status_code=500, detail=f'Erreur LLM: {str(e)}')
-
-    # Extract text and memory JSON
-    def separer_texte_et_json(output: str):
-        start = output.find('```json')
-        if start == -1:
-            return output.strip(), None
-        end = output.find('```', start + 7)
-        if end == -1:
-            return output.strip(), None
-        text = output[:start].strip()
-        json_str = output[start + 7:end].strip()
-        try:
-            return text, json.loads(json_str)
-        except:
-            return output.strip(), None
-
-    response_text, memory_json = separer_texte_et_json(llm_output)
-
-    return ChatResponse(
-        response_text=response_text,
-        memory_update=memory_json,
-        debug_info=debug_info
-    )
 
 # --- ENDPOINT D'AJOUT DE TRADUCTION (Supporte une liste) ---
 @app.post('/add_translation', response_model=dict)
