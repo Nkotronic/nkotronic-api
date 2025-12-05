@@ -228,6 +228,66 @@ class TranslationEntry(BaseModel):
     categorie_grammaticale: Optional[str] = Field(None, description="nom, verbe, adjectif, adverbe, etc.")
     niveau_langue: Optional[str] = Field(None, description="formel, courant, familier")
 
+
+# 🆕 PHASE 5.1 : MODÈLE DE CONNAISSANCE MULTI-TYPES
+class ConnaissanceEntry(BaseModel):
+    """
+    Modèle unifié pour stocker TOUS les types de connaissances N'ko.
+    
+    Types supportés:
+    - "mot" : Traduction simple  
+    - "règle" : Règle grammaticale
+    - "fait" : Fait culturel/linguistique
+    - "anecdote" : Histoire/récit
+    - "liste" : Liste structurée (jours, mois, etc.)
+    - "conjugaison" : Formes verbales
+    - "expression" : Expression idiomatique
+    - "proverbe" : Proverbe/dicton
+    """
+    # === IDENTIFICATION ===
+    type_connaissance: str = Field("mot", description="Type: mot, règle, fait, anecdote, liste, conjugaison, expression, proverbe")
+    
+    # === POUR LES MOTS (type="mot") ===
+    element_français: Optional[str] = Field(None, description="Mot en français")
+    element_nko: Optional[str] = Field(None, description="Mot en N'ko")
+    concept_identifie: Optional[str] = Field("Général", description="Catégorie du concept")
+    
+    # === POUR LES RÈGLES (type="règle") ===
+    titre_règle: Optional[str] = Field(None, description="Titre de la règle grammaticale")
+    explication_règle: Optional[str] = Field(None, description="Explication détaillée de la règle")
+    exceptions: Optional[List[str]] = Field(None, description="Exceptions à la règle")
+    
+    # === POUR LES FAITS/ANECDOTES (type="fait" ou "anecdote") ===
+    titre: Optional[str] = Field(None, description="Titre du fait ou de l'anecdote")
+    contenu: Optional[str] = Field(None, description="Contenu narratif")
+    
+    # === POUR LES LISTES (type="liste") ===
+    nom_liste: Optional[str] = Field(None, description="Nom de la liste")
+    elements_liste: Optional[List[Dict[str, str]]] = Field(None, description="Éléments [{nko: '', fr: ''}]")
+    
+    # === POUR LES CONJUGAISONS (type="conjugaison") ===
+    verbe_nko: Optional[str] = Field(None, description="Verbe en N'ko")
+    verbe_français: Optional[str] = Field(None, description="Verbe en français")
+    formes: Optional[Dict[str, str]] = Field(None, description="Formes conjuguées")
+    
+    # === POUR LES EXPRESSIONS/PROVERBES ===
+    texte_nko: Optional[str] = Field(None, description="Texte en N'ko")
+    traduction_littérale: Optional[str] = Field(None, description="Traduction mot à mot")
+    signification: Optional[str] = Field(None, description="Signification réelle")
+    
+    # === CHAMPS COMMUNS ===
+    valeur_numerique: Optional[float] = Field(None, description="Valeur numérique")
+    fait_texte: Optional[str] = Field(None, description="Information contextuelle")
+    exemples: Optional[List[str]] = Field(None, description="Exemples d'utilisation")
+    synonymes: Optional[List[str]] = Field(None, description="Synonymes")
+    categorie_grammaticale: Optional[str] = Field(None, description="Catégorie grammaticale")
+    niveau_langue: Optional[str] = Field(None, description="Niveau de langue")
+    tags: Optional[List[str]] = Field(None, description="Tags pour recherche")
+    difficulté: Optional[str] = Field(None, description="débutant, intermédiaire, avancé")
+    source: Optional[str] = Field(None, description="Source de l'information")
+    appris_par: Optional[str] = Field(None, description="Qui a enseigné")
+    date_ajout: Optional[str] = Field(None, description="Timestamp d'ajout")
+
 # --- FONCTION D'EXTRACTION MOT-CLÉ ---
 async def extraire_mot_cle(user_message: str, llm_client: OpenAI) -> str:
     """Extrait le mot français à traduire de manière robuste."""
@@ -453,18 +513,218 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
     return question_enrichie, traductions
 
 
-# --- PHASE 5: DÉTECTION D'APPRENTISSAGE ---
+# --- PHASE 5.1: DÉTECTION MULTI-TYPES COMPLÈTE ---
+
+def detecter_type_connaissance(message: str) -> Optional[Dict]:
+    """
+    Détecte le type de connaissance dans le message.
+    
+    Types supportés:
+    - "règle" : Règles grammaticales
+    - "fait" : Faits culturels/linguistiques
+    - "anecdote" : Histoires/récits
+    - "liste" : Listes structurées
+    - "conjugaison" : Formes verbales
+    - "expression" : Expressions idiomatiques
+    - "proverbe" : Proverbes/dictons
+    - "mot" : Mots simples (fallback)
+    """
+    import re
+    
+    message_clean = message.strip().lower()
+    
+    # 1️⃣ RÈGLES GRAMMATICALES (priorité haute)
+    patterns_règle = [
+        r'(?:apprends?|mémorise[rz]?)\s+(?:la\s+)?règle\s*[:;]?\s*(.+)',
+        r'règle\s+(?:de\s+)?(?:grammaire|grammaticale)\s*[:;]?\s*(.+)',
+        r'en\s+n.?ko,?\s+(.+?)\s+(?:se\s+forme|fonctionne|s.écrit)',
+    ]
+    
+    for pattern in patterns_règle:
+        match = re.search(pattern, message_clean, re.IGNORECASE | re.DOTALL)
+        if match:
+            explication = match.group(1).strip()
+            titre = explication.split()[:8]
+            titre = ' '.join(titre) + ("..." if len(explication.split()) > 8 else "")
+            
+            return {
+                'type': 'règle',
+                'titre_règle': titre,
+                'explication_règle': explication,
+                'concept_identifie': 'grammaire'
+            }
+    
+    # 2️⃣ FAITS CULTURELS
+    patterns_fait = [
+        r'(?:apprends?|mémorise[rz]?)\s+(?:le\s+)?fait\s*[:;]?\s*(.+)',
+        r'fait\s+(?:culturel|historique|linguistique)\s*[:;]?\s*(.+)',
+        r'contexte\s*[:;]?\s*(.+)',
+        r'(?:sache|note)\s+que\s+(.+)',
+    ]
+    
+    for pattern in patterns_fait:
+        match = re.search(pattern, message_clean, re.IGNORECASE | re.DOTALL)
+        if match:
+            contenu = match.group(1).strip()
+            titre = contenu[:60] + ("..." if len(contenu) > 60 else "")
+            
+            return {
+                'type': 'fait',
+                'titre': titre,
+                'contenu': contenu,
+                'concept_identifie': 'culture'
+            }
+    
+    # 3️⃣ ANECDOTES
+    patterns_anecdote = [
+        r'anecdote\s*[:;]?\s*(.+)',
+        r'histoire\s*[:;]?\s*(.+)',
+        r'(?:il\s+paraît|on\s+raconte)\s+que\s+(.+)',
+    ]
+    
+    for pattern in patterns_anecdote:
+        match = re.search(pattern, message_clean, re.IGNORECASE | re.DOTALL)
+        if match:
+            contenu = match.group(1).strip()
+            titre = contenu[:50] + ("..." if len(contenu) > 50 else "")
+            
+            return {
+                'type': 'anecdote',
+                'titre': titre,
+                'contenu': contenu,
+                'concept_identifie': 'culture'
+            }
+    
+    # 4️⃣ LISTES STRUCTURÉES
+    patterns_liste = [
+        r'(?:apprends?|mémorise[rz]?)\s+(?:la\s+)?liste\s+(?:des?\s+)?([^:;]+)\s*[:;]?\s*(.+)',
+        r'liste\s+(?:des?\s+)?([^:;]+)\s*[:;]?\s*(.+)',
+    ]
+    
+    for pattern in patterns_liste:
+        match = re.search(pattern, message_clean, re.IGNORECASE | re.DOTALL)
+        if match:
+            nom_liste = match.group(1).strip()
+            contenu_liste = match.group(2).strip()
+            
+            # Parser les éléments
+            elements = []
+            items = re.split(r'[\n,;]', contenu_liste)
+            
+            for item in items:
+                item = item.strip().lstrip('- ')
+                if not item:
+                    continue
+                
+                # Pattern: nko = français
+                item_match = re.search(r'([\u07C0-\u07FF]+)\s*[=:]\s*([^=:,\n]+)', item)
+                if item_match:
+                    elements.append({
+                        'nko': item_match.group(1).strip(),
+                        'fr': item_match.group(2).strip()
+                    })
+            
+            if elements:
+                return {
+                    'type': 'liste',
+                    'nom_liste': nom_liste,
+                    'elements_liste': elements,
+                    'concept_identifie': 'vocabulaire'
+                }
+    
+    # 5️⃣ CONJUGAISONS
+    patterns_conjugaison = [
+        r'(?:le\s+verbe|verbe)\s+([\u07C0-\u07FF]+)\s*\(([^)]+)\)\s+(?:se\s+conjugue|conjugaison)\s*[:;]?\s*(.+)',
+        r'conjugaison\s+de\s+([\u07C0-\u07FF]+)\s*\(([^)]+)\)\s*[:;]?\s*(.+)',
+    ]
+    
+    for pattern in patterns_conjugaison:
+        match = re.search(pattern, message, re.IGNORECASE | re.DOTALL)
+        if match:
+            verbe_nko = match.group(1).strip()
+            verbe_fr = match.group(2).strip()
+            contenu = match.group(3).strip()
+            
+            # Parser les formes
+            formes = {}
+            lignes = contenu.split('\n')
+            
+            for ligne in lignes:
+                ligne = ligne.strip().lstrip('- ')
+                if not ligne:
+                    continue
+                
+                forme_match = re.search(r'([^:]+)\s*[:]\s*([\u07C0-\u07FF\s]+)', ligne)
+                if forme_match:
+                    temps = forme_match.group(1).strip()
+                    forme = forme_match.group(2).strip()
+                    formes[temps] = forme
+            
+            if formes:
+                return {
+                    'type': 'conjugaison',
+                    'verbe_nko': verbe_nko,
+                    'verbe_français': verbe_fr,
+                    'formes': formes,
+                    'concept_identifie': 'grammaire'
+                }
+    
+    # 6️⃣ EXPRESSIONS IDIOMATIQUES
+    patterns_expression = [
+        r'expression\s*[:;]?\s+([\u07C0-\u07FF\s]+)\s*[=:]?\s*(?:signifie|veut dire)\s+(.+)',
+        r'([\u07C0-\u07FF\s]+)\s+(?:est\s+une\s+expression|idiome)\s+(?:qui\s+)?(?:signifie|veut dire)\s+(.+)',
+    ]
+    
+    for pattern in patterns_expression:
+        match = re.search(pattern, message, re.IGNORECASE | re.DOTALL)
+        if match:
+            texte_nko = match.group(1).strip()
+            signification = match.group(2).strip()
+            
+            # Extraire traduction littérale si présente
+            traduction_lit = None
+            lit_match = re.search(r'littéralement\s+["\']([^"\']+)["\']', signification, re.IGNORECASE)
+            if lit_match:
+                traduction_lit = lit_match.group(1)
+            
+            return {
+                'type': 'expression',
+                'texte_nko': texte_nko,
+                'signification': signification,
+                'traduction_littérale': traduction_lit,
+                'concept_identifie': 'expression'
+            }
+    
+    # 7️⃣ PROVERBES
+    patterns_proverbe = [
+        r'proverbe\s*[:;]?\s+([\u07C0-\u07FF\s]+)\s*[=:]?\s*(.+)',
+        r'dicton\s*[:;]?\s+([\u07C0-\u07FF\s]+)\s*[=:]?\s*(.+)',
+    ]
+    
+    for pattern in patterns_proverbe:
+        match = re.search(pattern, message, re.IGNORECASE | re.DOTALL)
+        if match:
+            texte_nko = match.group(1).strip()
+            signification = match.group(2).strip()
+            
+            return {
+                'type': 'proverbe',
+                'texte_nko': texte_nko,
+                'signification': signification,
+                'concept_identifie': 'culture'
+            }
+    
+    # 8️⃣ MOTS (fallback - ancien système)
+    return None
+
+
+# --- PHASE 5: DÉTECTION D'APPRENTISSAGE (MOTS SIMPLES) ---
 def detecter_apprentissage(message: str) -> Optional[Dict[str, str]]:
     """
-    Détecte si le message est une demande d'apprentissage.
+    Détecte si le message est une demande d'apprentissage de MOT simple.
+    Cette fonction est maintenant un fallback pour les mots simples.
     
-    Patterns supportés:
-    - "apprends que X = Y"
-    - "X = Y"
-    - "X signifie Y"
-    - "Y se dit X en N'ko"
-    - "apprends: X = Y"
-    - "mémorise que X = Y"
+    Pour les autres types (règles, faits, etc.), utilisez detecter_type_connaissance()
     """
     import re
     
@@ -622,6 +882,129 @@ async def apprendre_mot(
             'message': f"❌ Erreur lors de l'apprentissage: {str(e)}"
         }
 
+
+# --- PHASE 5.1: APPRENTISSAGE MULTI-TYPES ---
+async def apprendre_connaissance(
+    connaissance_data: Dict,
+    llm_client: OpenAI,
+    qdrant_client: AsyncQdrantClient
+) -> Dict[str, any]:
+    """
+    Apprend n'importe quel type de connaissance (règles, faits, listes, etc.).
+    
+    Args:
+        connaissance_data: Dict avec 'type' et données spécifiques
+        llm_client: Client OpenAI
+        qdrant_client: Client Qdrant
+    
+    Returns:
+        Dict avec status et message
+    """
+    try:
+        import unicodedata
+        import time
+        
+        type_conn = connaissance_data.get('type', 'mot')
+        
+        logging.info(f"📚 Apprentissage type '{type_conn}': {connaissance_data}")
+        
+        # Déterminer le texte pour l'embedding selon le type
+        if type_conn == 'mot':
+            # Mot simple
+            texte_embedding = connaissance_data.get('français', '')
+        elif type_conn == 'règle':
+            # Règle: utiliser titre + explication
+            texte_embedding = f"{connaissance_data.get('titre_règle', '')} {connaissance_data.get('explication_règle', '')}"
+        elif type_conn in ['fait', 'anecdote']:
+            # Fait/Anecdote: utiliser titre + contenu
+            texte_embedding = f"{connaissance_data.get('titre', '')} {connaissance_data.get('contenu', '')}"
+        elif type_conn == 'liste':
+            # Liste: utiliser nom de liste + tous les éléments
+            nom = connaissance_data.get('nom_liste', '')
+            elements = connaissance_data.get('elements_liste', [])
+            elements_text = ' '.join([f"{e.get('fr', '')} {e.get('nko', '')}" for e in elements])
+            texte_embedding = f"{nom} {elements_text}"
+        elif type_conn == 'conjugaison':
+            # Conjugaison: utiliser verbe français + formes
+            verbe = connaissance_data.get('verbe_français', '')
+            formes = connaissance_data.get('formes', {})
+            formes_text = ' '.join(formes.values())
+            texte_embedding = f"conjugaison {verbe} {formes_text}"
+        elif type_conn in ['expression', 'proverbe']:
+            # Expression/Proverbe: utiliser signification + texte nko
+            texte_nko = connaissance_data.get('texte_nko', '')
+            signification = connaissance_data.get('signification', '')
+            texte_embedding = f"{signification} {texte_nko}"
+        else:
+            texte_embedding = str(connaissance_data)
+        
+        # Créer embedding
+        emb_resp = await asyncio.to_thread(
+            llm_client.embeddings.create,
+            input=[texte_embedding],
+            model=EMBEDDING_MODEL
+        )
+        vector = emb_resp.data[0].embedding
+        
+        # Créer l'entrée avec métadonnées
+        nouvelle_entree = {
+            **connaissance_data,
+            'appris_par': 'utilisateur',
+            'date_ajout': str(time.time())
+        }
+        
+        # Créer le point Qdrant
+        point_id = str(uuid.uuid4())
+        point = PointStruct(
+            id=point_id,
+            vector=vector,
+            payload=nouvelle_entree
+        )
+        
+        # Insérer dans Qdrant
+        await qdrant_client.upsert(
+            collection_name=COLLECTION_NAME,
+            points=[point]
+        )
+        
+        # Message de confirmation selon le type
+        if type_conn == 'mot':
+            message = f"✅ J'ai appris : {connaissance_data.get('element_nko')} = {connaissance_data.get('element_français')}"
+        elif type_conn == 'règle':
+            message = f"✅ Règle grammaticale mémorisée : {connaissance_data.get('titre_règle')}"
+        elif type_conn == 'fait':
+            message = f"✅ Fait culturel mémorisé : {connaissance_data.get('titre')}"
+        elif type_conn == 'anecdote':
+            message = f"✅ Anecdote mémorisée : {connaissance_data.get('titre')}"
+        elif type_conn == 'liste':
+            nb_elements = len(connaissance_data.get('elements_liste', []))
+            message = f"✅ Liste '{connaissance_data.get('nom_liste')}' mémorisée ({nb_elements} éléments)"
+        elif type_conn == 'conjugaison':
+            message = f"✅ Conjugaison du verbe {connaissance_data.get('verbe_nko')} ({connaissance_data.get('verbe_français')}) mémorisée"
+        elif type_conn == 'expression':
+            message = f"✅ Expression mémorisée : {connaissance_data.get('texte_nko')}"
+        elif type_conn == 'proverbe':
+            message = f"✅ Proverbe mémorisé : {connaissance_data.get('texte_nko')}"
+        else:
+            message = f"✅ Connaissance de type '{type_conn}' mémorisée"
+        
+        logging.info(f"✅ Connaissance apprise et stockée: {message}")
+        
+        return {
+            'status': 'success',
+            'message': message,
+            'type': type_conn,
+            'point_id': point_id
+        }
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de l'apprentissage: {e}")
+        return {
+            'status': 'error',
+            'message': f"❌ Erreur lors de l'apprentissage: {str(e)}"
+        }
+
+
 # 🆕 PHASE 3 : FONCTIONS DE TRANSCRIPTION PHONÉTIQUE
 def transcrire_nko_phonetique(mot_nko: str) -> str:
     """Transcrit un mot N'ko en phonétique latine."""
@@ -647,6 +1030,103 @@ def decomposer_syllabe_nko(mot_nko: str) -> List[str]:
         return [mot_nko]
     
     return syllabes
+
+
+# --- PHASE 5.1: FORMATAGE CONTEXTE MULTI-TYPES ---
+def formater_connaissance_pour_contexte(payload: Dict) -> str:
+    """
+    Formate une connaissance pour le contexte RAG selon son type.
+    
+    Args:
+        payload: Données de la connaissance depuis Qdrant
+    
+    Returns:
+        Ligne formatée pour le contexte
+    """
+    type_conn = payload.get('type', 'mot')
+    
+    if type_conn == 'mot':
+        # Format classique pour les mots
+        fr = payload.get('element_français', '')
+        nko = payload.get('element_nko', '')
+        concept = payload.get('concept_identifie', '')
+        ligne = f"- {fr} = {nko} ({concept})"
+        
+        # Enrichissements
+        valeur_num = payload.get('valeur_numerique')
+        if valeur_num is not None:
+            ligne += f" | valeur: {valeur_num}"
+        
+        fait = payload.get('fait_texte')
+        if fait:
+            ligne += f" | info: {fait}"
+        
+        exemples = payload.get('exemples')
+        if exemples:
+            ligne += f" | ex: {exemples[0] if isinstance(exemples, list) else exemples}"
+        
+        # Phonétique
+        phonetique = transcrire_nko_phonetique(nko)
+        if phonetique and phonetique != nko:
+            ligne += f" | prononciation: {phonetique}"
+        
+        return ligne
+    
+    elif type_conn == 'règle':
+        # Format pour règles grammaticales
+        titre = payload.get('titre_règle', '')
+        explication = payload.get('explication_règle', '')
+        return f"- [RÈGLE] {titre}: {explication}"
+    
+    elif type_conn == 'fait':
+        # Format pour faits culturels
+        titre = payload.get('titre', '')
+        contenu = payload.get('contenu', '')
+        return f"- [FAIT] {titre}: {contenu}"
+    
+    elif type_conn == 'anecdote':
+        # Format pour anecdotes
+        titre = payload.get('titre', '')
+        contenu = payload.get('contenu', '')
+        return f"- [ANECDOTE] {titre}: {contenu}"
+    
+    elif type_conn == 'liste':
+        # Format pour listes
+        nom_liste = payload.get('nom_liste', '')
+        elements = payload.get('elements_liste', [])
+        elements_str = ', '.join([f"{e.get('fr')}={e.get('nko')}" for e in elements[:5]])
+        if len(elements) > 5:
+            elements_str += f"... ({len(elements)} éléments)"
+        return f"- [LISTE] {nom_liste}: {elements_str}"
+    
+    elif type_conn == 'conjugaison':
+        # Format pour conjugaisons
+        verbe_nko = payload.get('verbe_nko', '')
+        verbe_fr = payload.get('verbe_français', '')
+        formes = payload.get('formes', {})
+        formes_str = ', '.join([f"{temps}: {forme}" for temps, forme in list(formes.items())[:3]])
+        return f"- [CONJUGAISON] {verbe_nko} ({verbe_fr}): {formes_str}"
+    
+    elif type_conn == 'expression':
+        # Format pour expressions
+        texte_nko = payload.get('texte_nko', '')
+        signification = payload.get('signification', '')
+        trad_lit = payload.get('traduction_littérale', '')
+        ligne = f"- [EXPRESSION] {texte_nko} = {signification}"
+        if trad_lit:
+            ligne += f" (litt: {trad_lit})"
+        return ligne
+    
+    elif type_conn == 'proverbe':
+        # Format pour proverbes
+        texte_nko = payload.get('texte_nko', '')
+        signification = payload.get('signification', '')
+        return f"- [PROVERBE] {texte_nko} = {signification}"
+    
+    else:
+        # Format générique
+        return f"- {payload}"
+
 
 def recherche_phonetique(query: str, mot_nko: str) -> float:
     """Calcule un score de similarité phonétique entre query et mot N'ko."""
@@ -683,12 +1163,36 @@ async def chat_endpoint(req: ChatRequest):
     contexte_rag_text = '[Aucune donnée en mémoire]'
 
     try:
-        # PHASE 5: Détecter si c'est une demande d'apprentissage
+        # PHASE 5.1: Détecter type de connaissance (règles, faits, listes, etc.) - PRIORITÉ HAUTE
+        type_info = detecter_type_connaissance(req.user_message)
+        
+        if type_info:
+            # C'est une règle, fait, anecdote, liste, conjugaison, expression ou proverbe !
+            logging.info(f"🎓 {type_info['type'].upper()} détecté: {type_info}")
+            
+            resultat = await apprendre_connaissance(
+                connaissance_data=type_info,
+                llm_client=LLM_CLIENT,
+                qdrant_client=QDRANT_CLIENT
+            )
+            
+            return ChatResponse(
+                response_text=resultat['message'],
+                memory_update=None,
+                debug_info={
+                    'apprentissage': True,
+                    'type': type_info['type'],
+                    'status': resultat['status'],
+                    'details': resultat
+                } if req.debug else None
+            )
+        
+        # PHASE 5: Détecter apprentissage de MOT simple (fallback)
         apprentissage_info = detecter_apprentissage(req.user_message)
         
         if apprentissage_info:
-            # C'est une demande d'apprentissage !
-            logging.info(f"🎓 Apprentissage détecté: {apprentissage_info}")
+            # C'est un mot simple !
+            logging.info(f"🎓 Apprentissage MOT détecté: {apprentissage_info}")
             
             resultat = await apprendre_mot(
                 nko_word=apprentissage_info['nko'],
@@ -704,6 +1208,7 @@ async def chat_endpoint(req: ChatRequest):
                 memory_update=None,
                 debug_info={
                     'apprentissage': True,
+                    'type': 'mot',
                     'status': resultat['status'],
                     'details': resultat
                 } if req.debug else None
@@ -747,34 +1252,10 @@ async def chat_endpoint(req: ChatRequest):
 
                 if pertinents:
                     logging.info(f"✅ {len(pertinents)} résultat(s) pertinent(s) (score > {RAG_SCORE_THRESHOLD})")
-                    # Format enrichi utilisant tous les champs disponibles
+                    # Format enrichi utilisant la nouvelle fonction multi-types
                     lignes = []
                     for h in pertinents[:5]:
-                        fr = h.payload.get('element_français', '')
-                        nko = h.payload.get('element_nko', '')
-                        concept = h.payload.get('concept_identifie', '')
-                        
-                        # Base
-                        ligne = f"- {fr} = {nko} ({concept})"
-                        
-                        # 🆕 Enrichissements Phase 2
-                        valeur_num = h.payload.get('valeur_numerique')
-                        if valeur_num is not None:
-                            ligne += f" | valeur: {valeur_num}"
-                        
-                        fait = h.payload.get('fait_texte')
-                        if fait:
-                            ligne += f" | info: {fait}"
-                        
-                        exemples = h.payload.get('exemples')
-                        if exemples:
-                            ligne += f" | ex: {exemples[0] if isinstance(exemples, list) else exemples}"
-                        
-                        # 🆕 Phase 3: Transcription phonétique
-                        phonetique = transcrire_nko_phonetique(nko)
-                        if phonetique and phonetique != nko:
-                            ligne += f" | prononciation: {phonetique}"
-                        
+                        ligne = formater_connaissance_pour_contexte(h.payload)
                         lignes.append(ligne)
                     contexte_rag_text = '\n'.join(lignes)
                 else:
@@ -783,21 +1264,7 @@ async def chat_endpoint(req: ChatRequest):
                         logging.info(f"💡 Utilisation des 3 meilleurs résultats")
                         lignes = []
                         for h in hits[:3]:
-                            fr = h.payload.get('element_français', '')
-                            nko = h.payload.get('element_nko', '')
-                            concept = h.payload.get('concept_identifie', '')
-                            
-                            ligne = f"- {fr} = {nko} ({concept})"
-                            
-                            # Enrichissements
-                            fait = h.payload.get('fait_texte')
-                            if fait:
-                                ligne += f" | info: {fait}"
-                            
-                            phonetique = transcrire_nko_phonetique(nko)
-                            if phonetique and phonetique != nko:
-                                ligne += f" | prononciation: {phonetique}"
-                            
+                            ligne = formater_connaissance_pour_contexte(h.payload)
                             lignes.append(ligne)
                         contexte_rag_text = '\n'.join(lignes)
 
