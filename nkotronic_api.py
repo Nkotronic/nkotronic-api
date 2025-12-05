@@ -69,14 +69,19 @@ CONTEXTE DISPONIBLE:
 {contexte_rag}
 
 INSTRUCTIONS:
-- Utilise DIRECTEMENT les traductions du contexte ci-dessus
-- Si aucune traduction n'est disponible, dis-le simplement
-- Réponds de manière naturelle et conversationnelle
-- Pour les salutations, reste poli et simple
+- Utilise les traductions du contexte UNIQUEMENT si la question le demande
+- N'utilise PAS les salutations du contexte sauf si l'utilisateur dit "bonjour" ou "salut"
+- Réponds naturellement sans ajouter de salutations inutiles
+- Si c'est une question de traduction, donne directement la réponse
+
+EXEMPLES:
+Q: "tu vas bien ?" → R: "Je vais bien, merci ! Et toi ?"
+Q: "c'est quoi ߛߓߍߛߎ߲ ?" → R: "ߛߓߍߛߎ߲ signifie 'lettre' en français."
+Q: "bonjour" → R: "ߒߞߏ ߛߌ ! Comment puis-je t'aider ?"
 
 Question: {user_message}
 
-Réponds maintenant de manière claire et directe:"""
+Réponds maintenant:"""
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[dict]:
