@@ -1,0 +1,292 @@
+[
+  {
+    "element_français": "un",
+    "element_nko": "߁",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 1,
+    "fait_texte": "Premier chiffre du système numérique N'ko",
+    "exemples": [
+      "߁ ߠߋ߬ (c'est un)",
+      "ߡߐ߱ ߁ (une personne)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "deux",
+    "element_nko": "߂",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 2,
+    "fait_texte": "Deuxième chiffre du système numérique N'ko",
+    "exemples": [
+      "߂ ߟߋ߬ (c'est deux)",
+      "ߡߐ߱ ߂ (deux personnes)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "trois",
+    "element_nko": "߃",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 3,
+    "fait_texte": "Troisième chiffre du système numérique N'ko",
+    "exemples": [
+      "߃ ߟߋ߬ (c'est trois)",
+      "ߡߐ߱ ߃ (trois personnes)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "quatre",
+    "element_nko": "߄",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 4,
+    "fait_texte": "Quatrième chiffre du système numérique N'ko",
+    "exemples": [
+      "߄ ߠߋ߬ (c'est quatre)",
+      "ߡߐ߱ ߄ (quatre personnes)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "cinq",
+    "element_nko": "߅",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 5,
+    "fait_texte": "Cinquième chiffre du système numérique N'ko",
+    "exemples": [
+      "߅ ߟߋ߬ (c'est cinq)",
+      "ߡߐ߱ ߅ (cinq personnes)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "six",
+    "element_nko": "߆",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 6,
+    "fait_texte": "Sixième chiffre du système numérique N'ko",
+    "exemples": [
+      "߆ ߟߋ߬ (c'est six)",
+      "ߡߐ߱ ߆ (six personnes)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "sept",
+    "element_nko": "߇",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 7,
+    "fait_texte": "Septième chiffre du système numérique N'ko",
+    "exemples": [
+      "߇ ߟߋ߬ (c'est sept)",
+      "ߡߐ߱ ߇ (sept personnes)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "huit",
+    "element_nko": "߈",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 8,
+    "fait_texte": "Huitième chiffre du système numérique N'ko",
+    "exemples": [
+      "߈ ߠߋ߬ (c'est huit)",
+      "ߡߐ߱ ߈ (huit personnes)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "neuf",
+    "element_nko": "߉",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 9,
+    "fait_texte": "Neuvième chiffre du système numérique N'ko",
+    "exemples": [
+      "߉ ߟߋ߬ (c'est neuf)",
+      "ߡߐ߱ ߉ (neuf personnes)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "zéro",
+    "element_nko": "߀",
+    "concept_identifie": "nombre",
+    "valeur_numerique": 0,
+    "fait_texte": "Zéro dans le système numérique N'ko",
+    "exemples": [
+      "߀ ߠߋ߬ (c'est zéro)",
+      "ߡߐ߱ ߀ (zéro personne)"
+    ],
+    "categorie_grammaticale": "nombre",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "paix",
+    "element_nko": "ߖߐ",
+    "concept_identifie": "concept_abstrait",
+    "fait_texte": "Concept fondamental dans la culture mandingue, souvent utilisé dans les salutations et les vœux. Représente l'harmonie sociale et spirituelle.",
+    "exemples": [
+      "ߖߐ ߦߋ߫ ߦߊ߲߬؟ (Y a-t-il la paix ?)",
+      "ߒ ߓߘߊ߫ ߖߐ ߛߐ߬ߘߐ߲߬ (j'ai obtenu la paix)"
+    ],
+    "synonymes": [
+      "ߤߙߍ",
+      "ߞߟߍ߬ߓߊߟߌߦߊ"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "guerre",
+    "element_nko": "ߞߍ߬ߟߍ",
+    "concept_identifie": "concept_abstrait",
+    "fait_texte": "Antonyme de paix. Terme utilisé pour décrire les conflits armés ou disputes importantes.",
+    "exemples": [
+      "ߞߍ߬ߟߍ ߓߊ߲߫ ߘߊ߫ (la guerre (se) termina)",
+      "ߞߍ߬ߟߍ ߡߊ߬ ߢߌ߲߬ (la guerre est mauvaise)"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "eau",
+    "element_nko": "ߖߌ",
+    "concept_identifie": "nature",
+    "fait_texte": "Élément naturel essentiel à la vie. Très important dans la culture mandingue.",
+    "exemples": [
+      "ߖߌ ߞߊ߬ ߊ߬ ߟߊߖߊ߬ (l'eau s'est tarie)",
+      "ߞߊ߬ ߖߌ ߡߌ߲߬ (boire de l'eau)"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "feu",
+    "element_nko": "ߕߊ",
+    "concept_identifie": "nature",
+    "fait_texte": "Élément naturel utilisé pour cuisiner et se chauffer. Symbolise aussi la transformation.",
+    "exemples": [
+      "ߕߊ ߟߊߡߍߣߍ߲߫ (allumer le feu)",
+      "ߕߊ ߓߘߊ߫ ߟߊߛߊ߬ (le feu s'est éteint)"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "soleil",
+    "element_nko": "ߕߋ߬ߟߋ",
+    "concept_identifie": "nature",
+    "fait_texte": "Astre du jour, source de lumière et de chaleur. Utilisé pour marquer le temps.",
+    "exemples": [
+      "ߕߋ߬ߟߋ ߓߘߊ߫ ߊ߬ ߟߊߟߊ߫ (le soleil s'est couché)",
+      "ߕߋ߬ߟߋ ߦߋ߬ ߥߟߌ߬ ߟߊ߫ (le soleil se lève)"
+    ],
+    "synonymes": [
+      "ߚߊ"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "lune",
+    "element_nko": "ߞߊߙߏ",
+    "concept_identifie": "nature",
+    "fait_texte": "Astre de la nuit. Utilisé dans le calendrier lunaire mandingue.",
+    "exemples": [
+      "ߞߊߙߏߡߊ ߞߊߙߏߟߊ (mois lunaire)",
+      "ߞߊߙߏ ߦߋ߫ ߡߣߍߡߣߍ߫ ߟߊ߫ (la lune brille)"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "merci",
+    "element_nko": "ߒ߬ߓߊ߬ߘߍ",
+    "concept_identifie": "remerciement",
+    "fait_texte": "Expression de gratitude très importante dans la politesse mandingue.",
+    "exemples": [
+      "ߒ߬ߓߊ߬ߘߍ ߞߏߛߓߍ߫ (merci beaucoup)",
+      "ߒ߬ߓߊ߬ߘߍ ߒ ߓߊߘߋ߲ (merci à toi)"
+    ],
+    "synonymes": [
+      "ߌ ߣߌ߫ ߗߋ"
+    ],
+    "categorie_grammaticale": "interjection",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "s'il te plaît",
+    "element_nko": "ߒ ߧߋ߫ ߌ ߡߊߘߌߦߊ߫ ߟߊ߫",
+    "concept_identifie": "politesse",
+    "fait_texte": "Formule de politesse pour faire une demande avec courtoisie.",
+    "exemples": [
+      "ߒ ߧߋ߫ ߌ ߡߊߘߌߦߊ߫ ߟߊ߫߸ ߊ߬ ߞߍ߫ (s'il te plaît, fais-le)"
+    ],
+    "categorie_grammaticale": "expression",
+    "niveau_langue": "formel"
+  },
+  {
+    "element_français": "livre",
+    "element_nko": "ߟߍߙߊ",
+    "concept_identifie": "culture",
+    "fait_texte": "Objet contenant des écrits. Le N'ko possède une riche tradition littéraire.",
+    "exemples": [
+      "ߞߊ߬ ߟߍߙߊ ߞߊߙߊ߲ (lire un livre)",
+      "ߞߊ߬ ߟߍߙߊ ߛߓߍ߫ (écrire un livre)"
+    ],
+    "synonymes": [
+      "ߞߝߊ",
+      "ߛߓߍߟߌ"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "école",
+    "element_nko": "ߞߊߙߊ߲ߕߊ",
+    "concept_identifie": "éducation",
+    "fait_texte": "Lieu d'apprentissage et d'enseignement. Les écoles N'ko enseignent la langue et la culture mandingue.",
+    "exemples": [
+      "ߞߊ߬ ߥߊ߫ ߞߊߙߊ߲ߕߊ ߟߊ߫ (aller à l'école)",
+      "ߞߊ߬ ߓߊ߲߫ ߞߊߙߊ߲ߕߊ ߟߊ߫ (finir l'école)"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "maison",
+    "element_nko": "ߓߏ߲",
+    "concept_identifie": "habitat",
+    "fait_texte": "Lieu d'habitation. La maison est le centre de la vie familiale mandingue.",
+    "exemples": [
+      "ߞߊ߬ ߕߊ߯ ߓߏ߲ ߠߊ߫ (partir à la maison)",
+      "ߞߊ߬ ߓߏ߲ ߘߏ߫ ߟߐ߬ (construire une maison)"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  },
+  {
+    "element_français": "famille",
+    "element_nko": "ߓߏ߲ߞߣߐ",
+    "concept_identifie": "social",
+    "fait_texte": "Groupe de personnes liées par le sang ou le mariage. La famille étendue est très importante dans la culture mandingue.",
+    "exemples": [
+      "ߓߏ߲ߞߣߐ ߞߘߎ߬ߜߍߟߍ߲ (la famille est importante)",
+      "ߒ ߠߊ߫ ߓߏ߲ߞߣߐߟߊ (ma famille)"
+    ],
+    "synonymes": [
+      "ߓߊߓߏ߲"
+    ],
+    "categorie_grammaticale": "nom",
+    "niveau_langue": "courant"
+  }
+]
