@@ -494,6 +494,21 @@ Ces informations sont VRAIES et PRIORITAIRES. Ne jamais les contredire :
    - Inspiré par l'écriture vaï (vaïnka)
    - Solomana Kantè l'a expliqué dans "Mandén Kurufaba"
 
+6️⃣ GRAMMAIRE N'KO - Règles fondamentales
+   
+   📌 RÈGLE DU PLURIEL (TRÈS IMPORTANT):
+   - En N'ko, le pluriel = ߟߎ߫ en POSTPOSITION (après le mot)
+   - Le pluriel n'est JAMAIS collé au mot (toujours séparé par un espace)
+   - Exemple: ߛߏ (maison) → ߛߏ ߟߎ߫ (maisons) ✅ PAS ߛߏߟߎ߫ ❌
+   - SAUF exceptions que l'utilisateur t'apprendra explicitement
+   - Si tu vois un pluriel collé sans que l'utilisateur t'ait dit que c'est une exception,
+     c'est probablement une ERREUR
+
+7️⃣ VOCABULAIRE DE BASE - Corrections importantes
+   - soleil = ߕߋ߬ߟߋ (PAS ߕߊ)
+   - feu = ߕߊ
+   - Ne JAMAIS confondre soleil et feu
+
 ⚠️ Si quelqu'un contredit ces faits, corrige poliment avec sources.
 
 ═══════════════════════════════════════════════════════════
