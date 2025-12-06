@@ -102,13 +102,11 @@ RAG_SCORE_THRESHOLD = 0.55
 # 🆕 PHASE 3 : MAPPING PHONÉTIQUE N'KO
 NKO_PHONETIC_MAP = {
     'ߊ': 'a', 'ߋ': 'e', 'ߌ': 'i', 'ߍ': 'ɛ', 'ߎ': 'u', 'ߏ': 'o', 'ߐ': 'ɔ',
-    'ߓ': 'b', 'ߔ': 'p', 'ߕ': 't', 'ߖ': 'j', 'ߗ': 'ch', 'ߘ': 'd',
-    'ߙ': 'r', 'ߚ': 'rr', 'ߛ': 's', 'ߜ': 'g', 'ߝ': 'f', 'ߞ': 'k',
-    'ߟ': 'l', 'ߠ': 'm', 'ߡ': 'n', 'ߢ': 'ny', 'ߣ': 'ɲ', 'ߤ': 'h',
-    'ߥ': 'w', 'ߦ': 'y', 'ߧ': 'gn', 'ߨ': 'ng',
+    'ߓ': 'b', 'ߔ': 'p', 'ߕ': 't', 'ߖ': 'd͡ʒ', 'ߗ': 't͡ʃ', 'ߘ': 'd',
+    'ߙ': 'r', 'ߚ': 'rr', 'ߛ': 's', 'ߜ': 'ɡ͡b', 'ߝ': 'f', 'ߞ': 'k',
+    'ߟ': 'l', 'ߠ': 'n', 'ߡ': 'm', 'ߢ': 'ɲ', 'ߣ': 'n', 'ߤ': 'h',
+    'ߥ': 'w', 'ߦ': 'y', 'ߧ': 'ɲ', 'ߨ': 'd͡ʒ', 'ߒ': "ŋ",
     '߫': '', '߬': '', '߭': '', '߮': '', '߯': '', '߰': '', '߱': '', '߲': 'n',
-    '߀': '0', '߁': '1', '߂': '2', '߃': '3', '߄': '4',
-    '߅': '5', '߆': '6', '߇': '7', '߈': '8', '߉': '9'
 }
 
 
@@ -302,13 +300,13 @@ class GamificationSystem:
     def message_celebration(badge: Badge) -> str:
         """Message de célébration pour un nouveau badge"""
         messages = {
-            Badge.PREMIER_MOT: "🎉 Félicitations ! Tu as appris ton premier mot en N'ko !",
-            Badge.DIX_MOTS: "🌟 Bravo ! Tu maîtrises déjà 10 mots ! Continue comme ça !",
-            Badge.CINQUANTE_MOTS: "🏆 Incroyable ! 50 mots appris ! Tu es en excellente voie !",
-            Badge.CENT_MOTS: "💎 EXTRAORDINAIRE ! 100 mots ! Tu es un véritable champion !",
-            Badge.GRAMMAIRIEN: "📖 Badge Maître de Grammaire débloqué ! La structure du N'ko n'a plus de secrets pour toi !",
+            Badge.PREMIER_MOT: "🎉 Félicitations ! On a encore progressé en N'ko !",
+            Badge.DIX_MOTS: "🌟 Bravo ! On maîtrise maintenant 10 mots ! Continuons comme ça !",
+            Badge.CINQUANTE_MOTS: "🏆 Incroyable ! 50 mots appris ! On est en excellente voie !",
+            Badge.CENT_MOTS: "💎 EXTRAORDINAIRE ! 100 mots ! On est de véritables champions !",
+            Badge.GRAMMAIRIEN: "📖 Badge Maître de Grammaire débloqué ! La structure du N'ko n'a plus de secrets pour nous !",
             Badge.PERSEVERANT: "💪 Badge Persévérant ! 7 jours d'apprentissage consécutifs ! Quelle détermination !",
-            Badge.CHAMPION: "👑 TU ES UN CHAMPION DU N'KO ! Respect total ! ߒ߬ߓߊ߬ߘߍ ߸ ߌ ߞߍ߫ ߘߊ߫ ߞߎߡߊ߫ ߞߊ߲߬ !"
+            Badge.CHAMPION: "👑 ON EST DES CHAMPIONS DU N'KO ! Respect total !"
         }
         return messages.get(badge, f"🎖️ Nouveau badge débloqué : {badge.value}")
 
@@ -344,7 +342,7 @@ class PedagogicalSystem:
     def creer_analogie(concept_francais: str) -> str:
         """Crée une analogie pour faciliter la compréhension"""
         analogies = {
-            "pluriel": "C'est comme en français où on ajoute 's', sauf qu'en N'ko c'est 'ߥ'",
+            "pluriel": "C'est comme en français où on ajoute 's', sauf qu'en N'ko c'est 'ߟߎ߫'",
             "ton": "Imagine les tons comme la mélodie d'une chanson - chaque syllabe a sa note",
             "alphabet": "L'alphabet N'ko, c'est comme un nouveau clavier pour écrire la langue mandingue",
         }
