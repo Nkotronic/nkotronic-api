@@ -18,7 +18,7 @@ NOUVEAUTÉS v3.0:
 Score global: 95% (vs 72% en v2.4.0)
 
 Auteur: Nkotronic Team
-Date: Décembre 2024
+Date: Décembre 2025
 Version: 3.0.0
 ═══════════════════════════════════════════════════════════════════════════
 """
