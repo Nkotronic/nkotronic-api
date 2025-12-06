@@ -1945,6 +1945,16 @@ async def apprendre_connaissance(
         else:
             texte_embedding = str(connaissance_data)
         
+        # 🆕 v3.1.6: NETTOYER le texte AVANT embedding
+        # 1. Supprimer échappements invalides
+        texte_embedding = texte_embedding.replace("\\'", "'").replace('\\"', '"')
+        
+        # 2. Normaliser espaces
+        texte_embedding = ' '.join(texte_embedding.split())
+        
+        # 3. Supprimer caractères de contrôle
+        texte_embedding = ''.join(char for char in texte_embedding if ord(char) >= 32 or char in '\n\t')
+        
         # 🆕 v3.1.5: TRONQUER si trop long pour embedding API
         # OpenAI embeddings max: ~8000 tokens ≈ 6000 mots ≈ 30000 caractères
         # Mais on limite à 2000 caractères pour sécurité et pertinence
