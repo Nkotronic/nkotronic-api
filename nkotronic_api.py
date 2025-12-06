@@ -18,7 +18,7 @@ NOUVEAUTÉS v3.0:
 Score global: 95% (vs 72% en v2.4.0)
 
 Auteur: Nkotronic Team
-Date: Décembre 2024
+Date: Décembre 2025
 Version: 3.0.0
 ═══════════════════════════════════════════════════════════════════════════
 """
@@ -1109,7 +1109,7 @@ Sois concis mais précis."""
                 model=LLM_MODEL,
                 messages=[{"role": "user", "content": prompt_resume}],
                 temperature=0.3,
-                max_tokens=500
+                max_tokens=1000  # v3.1.4: Augmenté pour résumés détaillés
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -1162,6 +1162,22 @@ async def extraire_mot_cle(user_message: str, llm_client: OpenAI) -> str:
     """Extrait le mot français à traduire de manière robuste."""
     import re
     
+    # 🆕 v3.1.4: OPTIMISATION - Extraction rapide avant LLM
+    # Patterns regex pour éviter appel LLM inutile
+    patterns_rapides = [
+        r"comment (?:dit-on|on dit) (?:le |la |l'|un |une )?([a-zàâäéèêëïîôùûü]+)",
+        r"(?:c'est quoi|quoi c'est) (?:le |la |l'|un |une )?([a-zàâäéèêëïîôùûü]+)",
+        r"traduction (?:de |d')?(?:le |la |l'|un |une )?([a-zàâäéèêëïîôùûü]+)",
+        r"(?:le |la |l'|un |une )?([a-zàâäéèêëïîôùûü]+) en n'?ko"
+    ]
+    
+    for pattern in patterns_rapides:
+        match = re.search(pattern, user_message.lower())
+        if match:
+            mot = match.group(1).strip()
+            logging.info(f"🔑 Mot extrait rapidement: '{mot}'")
+            return mot
+    
     # Recherche de mots entre guillemets
     quoted = re.findall(r"['\"]([^'\"]+)['\"]", user_message)
     if quoted:
@@ -1169,7 +1185,7 @@ async def extraire_mot_cle(user_message: str, llm_client: OpenAI) -> str:
         logging.info(f"🔑 Mot extrait des guillemets: '{mot}'")
         return mot
     
-    # Extraction via LLM
+    # Extraction via LLM (fallback si patterns échouent)
     prompt = f"""Extrait UNIQUEMENT le mot français à traduire. Réponds avec UN SEUL MOT.
 
 Exemples:
@@ -1215,12 +1231,16 @@ async def recherche_intelligente_filtree(mot_cle: str, llm_client: OpenAI, qdran
         )
         vector = emb_resp.data[0].embedding
         
-        # Recherche vectorielle simple
+        # 🆕 v3.1.4: Recherche vectorielle optimisée
+        # Limit adaptatif selon complexité
+        limit_rag = 15 if len(mot_cle.split()) > 2 else 10
+        
         result = await qdrant_client.query_points(
             collection_name=COLLECTION_NAME,
             query=vector,
-            limit=10,  # Top 10 pour donner du contexte au LLM
-            with_payload=True
+            limit=limit_rag,  # v3.1.4: Adaptatif pour meilleure compréhension
+            with_payload=True,
+            score_threshold=0.7  # v3.1.4: Filtrer résultats peu pertinents
         )
         
         hits = result.points
@@ -2477,6 +2497,15 @@ async def chat_endpoint(req: ChatRequest):
         )
 
         # 🆕 v3.1.2: Call LLM avec SYSTEM + USER séparés
+        # 🆕 v3.1.4: OPTIMISATION PERFORMANCE
+        # - max_tokens augmenté pour textes longs
+        # - temperature adaptative selon mode
+        temperature_mode = {
+            'conversationnel': 0.7,  # Plus créatif
+            'enseignant': 0.3,       # Plus précis
+            'élève': 0.5             # Équilibré
+        }
+        
         llm_resp = await asyncio.to_thread(
             LLM_CLIENT.chat.completions.create,
             model=LLM_MODEL,
@@ -2484,8 +2513,9 @@ async def chat_endpoint(req: ChatRequest):
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message_content}
             ],
-            temperature=0.5,
-            max_tokens=500  # Augmenté pour résumés
+            temperature=temperature_mode.get(mode, 0.5),
+            max_tokens=2000,  # v3.1.4: x4 pour textes longs & explications détaillées
+            stream=False  # Garder False pour compatibilité
         )
         llm_output = llm_resp.choices[0].message.content
         logging.info("✅ Réponse LLM reçue")
