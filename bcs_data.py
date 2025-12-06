@@ -18,7 +18,7 @@ NOUVEAUTÉS v3.0:
 Score global: 95% (vs 72% en v2.4.0)
 
 Auteur: Nkotronic Team
-Date: Décembre 2024
+Date: Décembre 2025
 Version: 3.0.0
 ═══════════════════════════════════════════════════════════════════════════
 """
@@ -446,7 +446,11 @@ class ErrorRecoverySystem:
 
 
 # 🆕 v3.0: PROMPT SYSTÈME ULTRA-INTELLIGENT (20 critères)
-PROMPT_SYSTEM_EXCELLENCE = """Tu es Nkotronic v3.1.1, assistant conversationnel spécialisé en N'ko.
+# 🆕 v3.1.2: SÉPARATION SYSTEM / USER MESSAGES
+# System = Instructions permanentes (envoyées comme role="system")
+# User = Contexte dynamique (envoyé comme role="user")
+
+PROMPT_SYSTEM_BASE = """Tu es Nkotronic v3.1.2, assistant conversationnel spécialisé en N'ko.
 
 ═══════════════════════════════════════════════════════════
 🎓 CONNAISSANCES FONDAMENTALES N'KO (VÉRITÉS ABSOLUES)
@@ -528,7 +532,10 @@ EXEMPLE CONCRET (Few-Shot Learning):
   
   ✅ BON: "Le pluriel se forme en ajoutant ߟߎ߫ en postposition (règle que tu m'as enseignée)."
   ❌ FAUX: "La marque n'est pas explicite, ça dépend..." (connaissances générales)
+"""
 
+# 🆕 v3.1.2: PROMPT_USER_CONTEXT - Contexte dynamique par requête
+PROMPT_USER_CONTEXT = """
 ═══════════════════════════════════════════════════════════
 🎭 MODE: {mode_actuel}
 ═══════════════════════════════════════════════════════════
@@ -2428,8 +2435,12 @@ async def chat_endpoint(req: ChatRequest):
         # Instructions spécifiques au mode (Few-Shot Learning)
         instruction_mode = MODE_INSTRUCTIONS.get(mode, MODE_INSTRUCTIONS["conversationnel"])
 
-        # 🆕 v3.1: Build prompt avec Chain-of-Thought, Few-Shot Learning et Role Playing
-        prompt = PROMPT_SYSTEM_EXCELLENCE.format(
+        # 🆕 v3.1.2: ARCHITECTURE FIX - Séparer system et user messages
+        # System message = Instructions permanentes (appliquées strictement)
+        system_message = PROMPT_SYSTEM_BASE
+        
+        # User message = Contexte dynamique (RAG, historique, question)
+        user_message_content = PROMPT_USER_CONTEXT.format(
             mode_actuel=mode.upper(),
             instruction_mode=instruction_mode,
             emotion_detectee=emotion.value if emotion else "neutre",
@@ -2450,11 +2461,14 @@ async def chat_endpoint(req: ChatRequest):
             user_message=message_corrige
         )
 
-        # Call LLM
+        # 🆕 v3.1.2: Call LLM avec SYSTEM + USER séparés
         llm_resp = await asyncio.to_thread(
             LLM_CLIENT.chat.completions.create,
             model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message_content}
+            ],
             temperature=0.5,
             max_tokens=500  # Augmenté pour résumés
         )
