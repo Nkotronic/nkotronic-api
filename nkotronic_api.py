@@ -446,7 +446,55 @@ class ErrorRecoverySystem:
 
 
 # 🆕 v3.0: PROMPT SYSTÈME ULTRA-INTELLIGENT (20 critères)
-PROMPT_SYSTEM_EXCELLENCE = """Tu es Nkotronic v3.1, assistant conversationnel spécialisé en N'ko.
+# 🆕 v3.1.2: SÉPARATION SYSTEM / USER MESSAGES
+# System = Instructions permanentes (envoyées comme role="system")
+# User = Contexte dynamique (envoyé comme role="user")
+
+PROMPT_SYSTEM_BASE = """Tu es Nkotronic v3.1.2, assistant conversationnel spécialisé en N'ko.
+
+═══════════════════════════════════════════════════════════
+🎓 CONNAISSANCES FONDAMENTALES N'KO (VÉRITÉS ABSOLUES)
+═══════════════════════════════════════════════════════════
+
+Ces informations sont VRAIES et PRIORITAIRES. Ne jamais les contredire :
+
+1️⃣ N'ko = LANGUE ET ÉCRITURE (pas uniquement écriture)
+   - Langue N'ko : ߒߞߏߞߊ߲ ou ߒߞߏ
+   - Écriture N'ko : ߒߞߏ ߛߓߍߛߎ߲ ou ߒߞߏ
+   - Beaucoup pensent à tort que c'est uniquement une écriture
+
+2️⃣ N'ko ≠ Bambara (erreur très courante)
+   - Google et les Occidentaux ont CONFONDU le N'ko avec le bambara
+   - Ils ont attribué la grammaire du bambara au N'ko (ERREUR)
+   - Le N'ko a sa PROPRE grammaire : ߒߞߏ ߞߊ߲ߜߍ
+
+3️⃣ Solomana Kantè - Inventeur du N'ko
+   - Nom EXACT : Fodé Solomana Kantè (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫)
+   - Variantes ACCEPTÉES : Solomana Kanté, Solomana Kantè, Solomāna Kanté, Solomāna Kantè
+   - Toute autre orthographe = ERREUR (corriger poliment)
+   - A écrit 183 livres en N'ko
+   - Dont 11 livres sur la grammaire N'ko :
+     * Les principaux corroboratifs en N'ko
+     * Petit livre de grammaire
+     * Premier livre de grammaire
+     * Livre de grammaire élémentaire, moyenne, 3ème année
+     * Lexiques français/N'ko et N'ko/français
+     * Néologismes N'ko/français
+     * Le fondement du N'ko
+
+4️⃣ Vocation du N'ko
+   - Unir TOUS les peuples mandingues
+   - Langue standard mandingue
+   - Langue la plus proche de l'ancêtre commun des langues mandingues
+
+5️⃣ Origine de l'écriture N'ko
+   - Basée sur glyphes mandingues anciens (22000+ documentés)
+   - Source : livre "Écritures africaines" de Nadine Martinez
+   - Chaque lettre N'ko = modernisation d'un glyphe ancien
+   - Inspiré par l'écriture vaï (vaïnka)
+   - Solomana Kantè l'a expliqué dans "Mandén Kurufaba"
+
+⚠️ Si quelqu'un contredit ces faits, corrige poliment avec sources.
 
 ═══════════════════════════════════════════════════════════
 ⚠️ RÈGLE ABSOLUE - HIÉRARCHIE DES SOURCES (NON NÉGOCIABLE)
@@ -467,13 +515,27 @@ INTERDICTIONS :
   ❌ Contredire le RAG même si tu "sais mieux"
   ❌ Ignorer le RAG parce qu'il semble incomplet
 
+⚠️ RÈGLE DE NATURALITÉ (TRÈS IMPORTANT):
+  ❌ JAMAIS mentionner "RAG", "contexte RAG", "base de données"
+  ❌ JAMAIS dire "Le terme ne figure pas dans le contexte RAG"
+  ❌ JAMAIS dire "Je ne trouve pas dans le CONTEXTE RAG"
+  
+  ✅ Dire plutôt :
+     - "Selon ce que tu m'as appris..."
+     - "D'après ce que je sais..."
+     - "Je me souviens que tu m'as dit..."
+     - Si info manquante : "Je ne sais pas encore" ou "Je n'ai pas cette info"
+
 EXEMPLE CONCRET (Few-Shot Learning):
   RAG: "Règle: le pluriel = ߟߎ߫ en postposition"
   Question: "C'est quoi la marque du pluriel ?"
   
   ✅ BON: "Le pluriel se forme en ajoutant ߟߎ߫ en postposition (règle que tu m'as enseignée)."
   ❌ FAUX: "La marque n'est pas explicite, ça dépend..." (connaissances générales)
+"""
 
+# 🆕 v3.1.2: PROMPT_USER_CONTEXT - Contexte dynamique par requête
+PROMPT_USER_CONTEXT = """
 ═══════════════════════════════════════════════════════════
 🎭 MODE: {mode_actuel}
 ═══════════════════════════════════════════════════════════
@@ -1312,6 +1374,61 @@ def detecter_mode_reponse(
     return "conversationnel"
 
 
+# 🆕 v3.1.1: DÉTECTION LISTES MULTI-LIGNES
+def detecter_liste_multilignes(message: str) -> Optional[Dict]:
+    """
+    Détecte les listes avec plusieurs lignes de format A=B ou A\tB.
+    
+    Exemple:
+        Aardonyx=ߖ߭ߟߎߘߜߊߟߊߞߊߣߊ߲
+        abaissement=ߡߊ߬ߖߌ߰ߟߌ
+        Abelisaurus=ߊߓߍߟߌߞߊߣߊ߲
+    
+    Returns:
+        Dict avec type='liste' et items=[{français, nko}, ...]
+    """
+    import re
+    
+    lines = message.strip().split('\n')
+    
+    # Filtrer lignes vides
+    lines = [l.strip() for l in lines if l.strip()]
+    
+    if len(lines) < 2:
+        return None
+    
+    # Vérifier si chaque ligne est format "mot=traduction" ou "mot\ttraduction"
+    items = []
+    for line in lines:
+        # Pattern: mot = traduction OU mot\ttraduction
+        match = re.match(r'^(.+?)\s*[=\t]\s*(.+)$', line)
+        if match:
+            partie1 = match.group(1).strip()
+            partie2 = match.group(2).strip()
+            
+            # Déterminer quel est le N'ko
+            nko_pattern = re.compile(r'[\u07C0-\u07FF]+')
+            has_nko_1 = bool(nko_pattern.search(partie1))
+            has_nko_2 = bool(nko_pattern.search(partie2))
+            
+            if has_nko_1 and not has_nko_2:
+                # partie1 = N'ko, partie2 = français
+                items.append({'français': partie2, 'nko': partie1})
+            elif has_nko_2 and not has_nko_1:
+                # partie2 = N'ko, partie1 = français
+                items.append({'français': partie1, 'nko': partie2})
+    
+    # Si au moins 2 items détectés → c'est une liste
+    if len(items) >= 2:
+        return {
+            'type': 'liste',
+            'items': items,
+            'nom_liste': f"Liste de {len(items)} mots"
+        }
+    
+    return None
+
+
 # --- PHASE 5.1: DÉTECTION MULTI-TYPES COMPLÈTE ---
 
 def detecter_type_connaissance(message: str) -> Optional[Dict]:
@@ -1331,6 +1448,34 @@ def detecter_type_connaissance(message: str) -> Optional[Dict]:
     import re
     
     message_clean = message.strip().lower()
+    
+    # 🆕 v3.1.1: FILTRE - Phrases qui ne sont PAS des apprentissages
+    phrases_ignorees = [
+        'il me semble',
+        'je pense',
+        'à mon avis',
+        'peut-être',
+        'probablement',
+        'claude.ai',
+        'claude',
+        'tu vois',
+        'fais',
+        'peux-tu',
+        'pourrais-tu',
+        'devrais',
+        'devrait',
+        'comment fonctionne',
+        'parle moi',
+        'explique'
+    ]
+    
+    if any(phrase in message_clean for phrase in phrases_ignorees):
+        return None  # Pas un apprentissage
+    
+    # 🆕 v3.1.1: PRIORITÉ 0 - Détection listes multi-lignes
+    liste_info = detecter_liste_multilignes(message)
+    if liste_info:
+        return liste_info
     
     # 1️⃣ RÈGLES GRAMMATICALES (priorité haute)
     patterns_règle = [
@@ -1530,8 +1675,8 @@ def detecter_apprentissage(message: str) -> Optional[Dict[str, str]]:
     # Nettoyer le message
     message_clean = message.strip().lower()
     
-    # 🆕 v3.1: Pattern 0 - "apprend [ça/que] : X signifie Y" (PRIORITÉ)
-    pattern0 = r'(?:apprends?|mémorise[rz]?)\s+(?:ça|que)\s*[:;]\s*(.+?)\s+signifie\s+["\']?(.+?)(?:["\'])?$'
+    # 🆕 v3.1.1: Pattern 0 amélioré - "apprend [et enregistre/mémorise] [ça/que] : X signifie Y"
+    pattern0 = r'(?:apprends?|mémorise[rz]?|enregistre[rz]?)\s+(?:et\s+)?(?:enregistre[rz]?|mémorise[rz]?)?\s*(?:ça|ceci|cela|que)?\s*[:;]\s*(.+?)\s+signifie\s+["\']?(.+?)(?:["\'])?$'
     
     match = re.search(pattern0, message_clean, re.IGNORECASE)
     if match:
@@ -1557,8 +1702,8 @@ def detecter_apprentissage(message: str) -> Optional[Dict[str, str]]:
                 'pattern': 'explication_signifie'
             }
     
-    # Pattern 1: "apprends [que] X = Y" ou "mémorise [que] X = Y"
-    pattern1 = r'(?:apprends?|mémorise[rz]?|enregistre[rz]?)\s*(?:que)?\s*[:;]?\s*(.+?)\s*[=:]\s*(.+)'
+    # 🆕 v3.1.1: Pattern 1 amélioré - "apprend [et enregistre] [ça/que] : X = Y"
+    pattern1 = r'(?:apprends?|mémorise[rz]?|enregistre[rz]?)\s+(?:et\s+)?(?:enregistre[rz]?|mémorise[rz]?)?\s*(?:ça|ceci|cela|que)?\s*[:;]?\s*(.+?)\s*[=:]\s*(.+)'
     
     # Pattern 2: "X = Y" (simple)
     pattern2 = r'^([^\s=]+)\s*[=:]\s*([^\s=]+)$'
@@ -1576,6 +1721,12 @@ def detecter_apprentissage(message: str) -> Optional[Dict[str, str]]:
             word1, word2 = match.groups()
             word1 = word1.strip()
             word2 = word2.strip()
+            
+            # 🆕 v3.1.1: Nettoyer mots parasites
+            parasites = ['et enregistre ça', 'et mémorise ça', 'et enregistre', 'et mémorise']
+            for parasite in parasites:
+                word1 = word1.replace(parasite, '').strip()
+                word2 = word2.replace(parasite, '').strip()
             
             # Déterminer quel est le N'ko et quel est le français
             import unicodedata
@@ -2066,18 +2217,20 @@ async def chat_endpoint(req: ChatRequest):
             for badge in progress_update['nouveaux_badges']:
                 celebration += f"\n\n{GamificationSystem.message_celebration(badge)}"
             
-            # 🆕 v3.1: Message adaptatif selon VRAIE progression
+            # 🆕 v3.1.1: Message adaptatif selon VRAIE progression (utilise progress_update)
             if action_type == 'mot_appris':
-                if progress.mots_appris == 1:
+                nb_mots_total = progress_update.get('mots_total', progress.mots_appris)
+                
+                if nb_mots_total == 1:
                     celebration += "\n\n🎉 Félicitations ! Tu as appris ton premier mot en N'ko !"
-                elif progress.mots_appris == 10:
-                    celebration += f"\n\n🎊 Bravo ! Tu as maintenant {progress.mots_appris} mots !"
-                elif progress.mots_appris == 50:
-                    celebration += f"\n\n🏆 Incroyable ! {progress.mots_appris} mots maîtrisés !"
-                elif progress.mots_appris == 100:
-                    celebration += f"\n\n💎 Centenaire atteint ! {progress.mots_appris} mots !"
-                elif progress.mots_appris % 25 == 0:
-                    celebration += f"\n\n🌟 Excellent ! {progress.mots_appris} mots en N'ko !"
+                elif nb_mots_total == 10:
+                    celebration += f"\n\n🎊 Bravo ! Tu as maintenant {nb_mots_total} mots !"
+                elif nb_mots_total == 50:
+                    celebration += f"\n\n🏆 Incroyable ! {nb_mots_total} mots maîtrisés !"
+                elif nb_mots_total == 100:
+                    celebration += f"\n\n💎 Centenaire atteint ! {nb_mots_total} mots !"
+                elif nb_mots_total % 25 == 0:
+                    celebration += f"\n\n🌟 Excellent ! {nb_mots_total} mots en N'ko !"
             
             # Afficher progression
             xp_gain = GamificationSystem.XP_PAR_REGLE if action_type == 'regle_apprise' else GamificationSystem.XP_PAR_MOT
@@ -2133,17 +2286,19 @@ async def chat_endpoint(req: ChatRequest):
             for badge in progress_update['nouveaux_badges']:
                 celebration += f"\n\n{GamificationSystem.message_celebration(badge)}"
             
-            # 🆕 v3.1: Message adaptatif selon VRAIE progression
-            if progress.mots_appris == 1:
+            # 🆕 v3.1.1: Message adaptatif selon VRAIE progression (utilise progress_update)
+            nb_mots_total = progress_update.get('mots_total', progress.mots_appris)
+            
+            if nb_mots_total == 1:
                 celebration += "\n\n🎉 Félicitations ! Tu as appris ton premier mot en N'ko !"
-            elif progress.mots_appris == 10:
-                celebration += f"\n\n🎊 Bravo ! Tu as maintenant {progress.mots_appris} mots !"
-            elif progress.mots_appris == 50:
-                celebration += f"\n\n🏆 Incroyable ! {progress.mots_appris} mots maîtrisés !"
-            elif progress.mots_appris == 100:
-                celebration += f"\n\n💎 Centenaire atteint ! {progress.mots_appris} mots !"
-            elif progress.mots_appris % 25 == 0:
-                celebration += f"\n\n🌟 Excellent ! {progress.mots_appris} mots en N'ko !"
+            elif nb_mots_total == 10:
+                celebration += f"\n\n🎊 Bravo ! Tu as maintenant {nb_mots_total} mots !"
+            elif nb_mots_total == 50:
+                celebration += f"\n\n🏆 Incroyable ! {nb_mots_total} mots maîtrisés !"
+            elif nb_mots_total == 100:
+                celebration += f"\n\n💎 Centenaire atteint ! {nb_mots_total} mots !"
+            elif nb_mots_total % 25 == 0:
+                celebration += f"\n\n🌟 Excellent ! {nb_mots_total} mots en N'ko !"
             
             # Afficher progression
             xp_restants = progress_update['xp_prochain_niveau'] - progress_update['xp_total']
@@ -2280,8 +2435,12 @@ async def chat_endpoint(req: ChatRequest):
         # Instructions spécifiques au mode (Few-Shot Learning)
         instruction_mode = MODE_INSTRUCTIONS.get(mode, MODE_INSTRUCTIONS["conversationnel"])
 
-        # 🆕 v3.1: Build prompt avec Chain-of-Thought, Few-Shot Learning et Role Playing
-        prompt = PROMPT_SYSTEM_EXCELLENCE.format(
+        # 🆕 v3.1.2: ARCHITECTURE FIX - Séparer system et user messages
+        # System message = Instructions permanentes (appliquées strictement)
+        system_message = PROMPT_SYSTEM_BASE
+        
+        # User message = Contexte dynamique (RAG, historique, question)
+        user_message_content = PROMPT_USER_CONTEXT.format(
             mode_actuel=mode.upper(),
             instruction_mode=instruction_mode,
             emotion_detectee=emotion.value if emotion else "neutre",
@@ -2302,11 +2461,14 @@ async def chat_endpoint(req: ChatRequest):
             user_message=message_corrige
         )
 
-        # Call LLM
+        # 🆕 v3.1.2: Call LLM avec SYSTEM + USER séparés
         llm_resp = await asyncio.to_thread(
             LLM_CLIENT.chat.completions.create,
             model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message_content}
+            ],
             temperature=0.5,
             max_tokens=500  # Augmenté pour résumés
         )
