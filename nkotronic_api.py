@@ -1483,6 +1483,9 @@ def detecter_type_connaissance(message: str) -> Optional[Dict]:
     """
     import re
     
+    # 🆕 v3.1.7: NETTOYER le message dès le début (fix Error 400)
+    message = message.replace("\\'", "'").replace('\\"', '"')
+    
     message_clean = message.strip().lower()
     
     # 🆕 v3.1.1: FILTRE - Phrases qui ne sont PAS des apprentissages
@@ -1707,6 +1710,10 @@ def detecter_apprentissage(message: str) -> Optional[Dict[str, str]]:
     Pour les autres types (règles, faits, etc.), utilisez detecter_type_connaissance()
     """
     import re
+    
+    # 🆕 v3.1.7: NETTOYER le message dès le début (fix Error 400)
+    # Supprimer échappements invalides qui causent l'erreur OpenAI
+    message = message.replace("\\'", "'").replace('\\"', '"')
     
     # Nettoyer le message
     message_clean = message.strip().lower()
