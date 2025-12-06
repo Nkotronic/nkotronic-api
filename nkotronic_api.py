@@ -97,7 +97,7 @@ CONVERSATION_MEMORY: Dict[str, deque] = {}
 # 🆕 v3.2.0 PHASE 1: QUICK WINS - Limites augmentées drastiquement
 MAX_MEMORY_SIZE = 200  # v3.0: 100 → v3.2.0: 200
 MAX_CHARS_EMBEDDING = 10000  # v3.1.5: 2000 → v3.2.0: 10000 (x5)
-MAX_TOKENS_RESPONSE = 8000  # v3.1.4: 2000 → v3.2.0: 8000 (x4)
+MAX_TOKENS_RESPONSE = 4096  # v3.1.4: 2000 → v3.2.0: 4096 (max gpt-4-turbo)
 MAX_TOKENS_RESUME = 2000  # Pour résumés de compression
 
 # 🆕 v3.2.0 PHASE 3: Configuration compression mémoire
