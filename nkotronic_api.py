@@ -18,7 +18,7 @@ NOUVEAUTÉS v3.0:
 Score global: 95% (vs 72% en v2.4.0)
 
 Auteur: Nkotronic Team
-Date: Décembre 2025
+Date: Décembre 2024
 Version: 3.0.0
 ═══════════════════════════════════════════════════════════════════════════
 """
@@ -954,7 +954,8 @@ def update_user_progress(session_id: str, action: str, details: dict = None) -> 
         'nouveau_niveau': progress.niveau if ancien_niveau != progress.niveau else None,
         'nouveaux_badges': nouveaux_badges,
         'xp_total': progress.points_xp,
-        'xp_prochain_niveau': GamificationSystem.xp_pour_niveau_suivant(progress.niveau)
+        'xp_prochain_niveau': GamificationSystem.xp_pour_niveau_suivant(progress.niveau),
+        'mots_total': progress.mots_appris  # 🆕 v3.1.5: Pour gamification messages adaptatifs
     }
 
 
@@ -1943,6 +1944,14 @@ async def apprendre_connaissance(
             texte_embedding = f"{signification} {texte_nko}"
         else:
             texte_embedding = str(connaissance_data)
+        
+        # 🆕 v3.1.5: TRONQUER si trop long pour embedding API
+        # OpenAI embeddings max: ~8000 tokens ≈ 6000 mots ≈ 30000 caractères
+        # Mais on limite à 2000 caractères pour sécurité et pertinence
+        MAX_CHARS_EMBEDDING = 2000
+        if len(texte_embedding) > MAX_CHARS_EMBEDDING:
+            logging.warning(f"⚠️ Texte trop long ({len(texte_embedding)} chars), troncature à {MAX_CHARS_EMBEDDING}")
+            texte_embedding = texte_embedding[:MAX_CHARS_EMBEDDING] + "..."
         
         # Créer embedding
         emb_resp = await asyncio.to_thread(
