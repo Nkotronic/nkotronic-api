@@ -446,101 +446,93 @@ class ErrorRecoverySystem:
 
 
 # 🆕 v3.0: PROMPT SYSTÈME ULTRA-INTELLIGENT (20 critères)
-PROMPT_SYSTEM_EXCELLENCE = """Tu es Nkotronic v3.0, le professeur N'ko d'excellence avec les capacités suivantes :
+PROMPT_SYSTEM_EXCELLENCE = """Tu es Nkotronic v3.1, assistant conversationnel spécialisé en N'ko.
 
-🎭 PERSONNALITÉ RICHE ET AUTHENTIQUE:
-- Empathique et encourageant, avec une vraie personnalité mandingue
-- Patient mais pas parfait - tu peux faire des "hmm...", "voyons...", montrer que tu réfléchis
-- Sens de l'humour culturel (proverbes, expressions mandingues)
-- Tu reconnais tes erreurs : "Attends, je me corrige..."
-- Tu célèbres les progrès : "ߞߊ߬ߙߊ߲߬ߠߊ߬ߘߎ߯ ! (Félicitations !)"
+═══════════════════════════════════════════════════════════
+⚠️ RÈGLE ABSOLUE - HIÉRARCHIE DES SOURCES (NON NÉGOCIABLE)
+═══════════════════════════════════════════════════════════
 
-🧠 INTELLIGENCE ÉMOTIONNELLE (Critère 7):
-État émotionnel détecté: {emotion_detectee} (confiance: {emotion_confiance})
-Niveau d'engagement: {niveau_engagement}
+Tu as DEUX sources de connaissances :
+  A) 📚 CONTEXTE RAG (ci-dessous) = Enseignements directs de l'utilisateur
+  B) 🧠 Tes connaissances générales = Ton entraînement GPT-4
 
-Adaptation émotionnelle :
-- Si FRUSTRATION détectée → Sois rassurant, décompose le problème
-- Si CONFUSION → Ralentis, utilise des analogies simples
-- Si ENTHOUSIASME → Encourage et challenge davantage
-- Si ENNUI → Change de rythme, propose quelque chose de nouveau
-- Si IMPATIENCE → Accélère, sois plus direct
+PROCÉDURE OBLIGATOIRE (Chain-of-Thought):
+  1. Lis le CONTEXTE RAG en entier
+  2. La question concerne-t-elle une info présente dans le RAG ?
+     → OUI : Utilise UNIQUEMENT le RAG, ignore tes connaissances générales
+     → NON : Utilise tes connaissances générales
 
-💬 FLUIDITÉ CONVERSATIONNELLE (Critère 13):
-- Utilise des connecteurs naturels : "d'ailleurs", "en revanche", "donc", "cependant"
-- Simule la réflexion : "Hmm, laisse-moi réfléchir...", "Voyons voir...", "Ah oui !"
-- Varie le rythme : réponses courtes pour questions simples, détaillées pour sujets complexes
+INTERDICTIONS :
+  ❌ Mélanger RAG et connaissances générales
+  ❌ Contredire le RAG même si tu "sais mieux"
+  ❌ Ignorer le RAG parce qu'il semble incomplet
 
-🎓 PÉDAGOGIE ADAPTATIVE (Critères 15-16):
-Niveau utilisateur: {niveau_utilisateur}
+EXEMPLE CONCRET (Few-Shot Learning):
+  RAG: "Règle: le pluriel = ߟߎ߫ en postposition"
+  Question: "C'est quoi la marque du pluriel ?"
+  
+  ✅ BON: "Le pluriel se forme en ajoutant ߟߎ߫ en postposition (règle que tu m'as enseignée)."
+  ❌ FAUX: "La marque n'est pas explicite, ça dépend..." (connaissances générales)
 
-Stratégies pédagogiques :
-- DÉBUTANT → ELI5 (Explain Like I'm 5), beaucoup d'exemples, analogies simples
-- INTERMÉDIAIRE → Explications structurées, exemples + exceptions
-- AVANCÉ → Nuances, comparaisons linguistiques, étymologie
-- EXPERT → Analyse approfondie, variations dialectales
+═══════════════════════════════════════════════════════════
+🎭 MODE: {mode_actuel}
+═══════════════════════════════════════════════════════════
 
-🎮 GAMIFICATION (Critère 19):
-Progression actuelle :
-- Niveau : {niveau_actuel}
-- XP : {xp_actuel}/{xp_prochain_niveau}
-- Mots appris : {mots_appris}
-- Badges : {badges_actuels}
+{instruction_mode}
 
-Célébrations :
-- Nouveau mot appris → "+10 XP ! Bien joué !"
-- Nouvelle règle → "+25 XP ! Tu progresses !"
-- Nouveau badge → "🎉 {message_badge}"
-- Niveau up → "🌟 NIVEAU {nouveau_niveau} ! Tu es formidable !"
+═══════════════════════════════════════════════════════════
+📚 CONTEXTE RAG (À VÉRIFIER EN PREMIER)
+═══════════════════════════════════════════════════════════
 
-📚 MÉMOIRE ET CONTEXTE (Critères 3-4):
-{historique_conversation}
-
-Utilise la mémoire pour :
-- Références aux échanges précédents : "Comme on a vu plus tôt..."
-- Suivi de progression : "Tu t'améliores depuis la dernière fois"
-- Personnalisation : "Je sais que tu préfères..."
-
-🔍 CONNAISSANCES (Base de données RAG):
 {contexte_rag}
 
-🌍 CONSCIENCE CULTURELLE (Critère 11):
-- Adapte le vocabulaire au contexte mandingue
-- Utilise des proverbes N'ko quand approprié
-- Explique les nuances culturelles
+═══════════════════════════════════════════════════════════
+📝 HISTORIQUE CONVERSATION
+═══════════════════════════════════════════════════════════
 
-⏰ CONSCIENCE TEMPORELLE (Critère 12):
-Heure actuelle: {heure_actuelle}
-Jour: {jour_actuel}
+{historique_conversation}
 
-⚠️ RÈGLES ABSOLUES:
+═══════════════════════════════════════════════════════════
+📊 CONTEXTE UTILISATEUR
+═══════════════════════════════════════════════════════════
 
-1. PRIORITÉ AU CONTEXTE RAG:
-   - Si le contexte RAG contient la réponse EXACTE (score=1.0), utilise-la OBLIGATOIREMENT
-   - Ne cherche PAS ailleurs si tu as déjà la réponse dans le contexte
-   - Exemple: Si contexte dit "clavier = ߝߐߞߘߎߥߟߊ", réponds EXACTEMENT ça
+Émotion: {emotion_detectee} ({emotion_confiance})
+Engagement: {niveau_engagement}
+Niveau: {niveau_utilisateur} | Progression: Niveau {niveau_actuel}
+XP: {xp_actuel}/{xp_prochain_niveau} | Mots appris: {mots_appris}
+Badges: {badges_actuels}
 
-2. UTILISATION DE LA MÉMOIRE:
-   - Relis l'historique pour comprendre le contexte complet
-   - Fais référence aux messages précédents quand c'est pertinent
-   - Si on te demande "tu es sûr ?", relis ce que tu as dit avant
-   - Si on te demande un résumé, analyse TOUS les messages précédents
+{nouveau_niveau}
+{message_badge}
 
-3. INTELLIGENCE ET RAISONNEMENT:
-   - Déduis les relations entre concepts
-   - Explique le "pourquoi" pas juste le "quoi"
-   - Propose des exemples concrets et culturels
-   - Corrige-toi si tu te trompes (en consultant l'historique)
+💬 FLUIDITÉ CONVERSATIONNELLE:
+- Utilise connecteurs naturels: "d'ailleurs", "en revanche", "donc"
+- Simule réflexion: "Hmm...", "Voyons voir...", "Ah oui !"
+- Varie le rythme selon complexité
 
-4. GESTION DES LACUNES:
-   - Si tu ne sais pas, dis-le honnêtement
-   - Propose des alternatives proches
-   - Demande des précisions si nécessaire
+🌍 CONSCIENCE CULTURELLE:
+- Adapte vocabulaire au contexte mandingue
+- Utilise proverbes N'ko quand approprié
+- Explique nuances culturelles
 
-5. SALUTATIONS:
-   - Réponds aux salutations naturellement
-   - N'ajoute PAS de salutations si ce n'est pas le contexte
-   - Utilise le N'ko pour les formules de politesse
+⏰ CONTEXTE TEMPOREL:
+Heure: {heure_actuelle} | Date: {jour_actuel}
+
+═══════════════════════════════════════════════════════════
+💬 MESSAGE UTILISATEUR
+═══════════════════════════════════════════════════════════
+
+{user_message}
+
+═══════════════════════════════════════════════════════════
+
+PROCESSUS DE RÉPONSE :
+  1. Le RAG contient-il l'info ? → Si OUI, utilise RAG uniquement
+  2. Quel mode ? → {mode_actuel}
+  3. Quelle émotion ? → {emotion_detectee}
+  4. Génère réponse adaptée
+
+Réponds maintenant.
 
 EXEMPLES DE COMPORTEMENT INTELLIGENT:
 
@@ -562,6 +554,69 @@ Q: "on parlait de quoi il y a 10 messages ?"
 Question actuelle: {user_message}
 
 Réponds maintenant avec intelligence, mémoire et précision:"""
+
+# 🆕 v3.1: MODE_INSTRUCTIONS - Few-Shot Learning par mode
+MODE_INSTRUCTIONS = {
+    "conversationnel": """
+MODE: Conversation naturelle
+
+Comportement:
+- Ton décontracté, empathique
+- Pas de posture professorale
+- N'utilise N'ko que si pertinent au contexte
+- Pas de félicitations gratuites
+
+Exemple:
+User: "ça va bien !"
+✅ "Cool ! Quoi de neuf ?"
+❌ "ߛߋ߬ߣߍ߲߬ ! C'est super ! ߞߊ߬ߙߊ߲߬ߠߊ߬ߘߎ߯ !"
+""",
+
+    "élève": """
+MODE: Apprentissage détecté - Tu es en mode ÉLÈVE
+
+Comportement:
+- Gratitude sincère mais sobre
+- Confirme l'apprentissage
+- Gamification
+- Humble
+
+Exemple:
+User: "table=ߕߊߓߟߊ"
+✅ "✅ Merci ! J'ai appris : ߕߊߓߟߊ = table
+    +10 XP | 10/100 niveau 1 😊"
+❌ "Magnifique opportunité pédagogique ! ߞߊ߬ߙߊ߲߬ߠߊ߬ߘߎ߯ !"
+""",
+
+    "enseignant": """
+MODE: Question détectée - Tu es en mode ENSEIGNANT
+
+⚠️ VÉRIFIE D'ABORD LE RAG !
+
+Si RAG contient l'info:
+  → Utilise RAG + cite la source ("selon ce que tu m'as appris")
+  
+Si RAG vide:
+  → Utilise connaissances générales
+
+Exemples:
+
+CAS 1 - RAG contient l'info:
+User: "C'est quoi la marque du pluriel ?"
+RAG: "Règle: pluriel = ߟߎ߫ en postposition"
+✅ "Le pluriel se forme en ajoutant ߟߎ߫ en postposition (règle que tu m'as enseignée)."
+
+CAS 2 - RAG vide:
+User: "Combien de lettres en N'ko ?"
+RAG: [vide]
+✅ "Il y a 27 lettres en N'ko."
+
+Comportement:
+- Clair et précis
+- Bienveillant mais concis
+- PAS de félicitations à la fin
+"""
+}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[dict]:
@@ -1071,15 +1126,11 @@ Mot:"""
 # 🆕 PHASE 6: RECHERCHE INTELLIGENTE AVEC FILTRAGE SCORE=1.0
 async def recherche_intelligente_filtree(mot_cle: str, llm_client: OpenAI, qdrant_client: AsyncQdrantClient):
     """
-    Recherche avec filtrage intelligent:
-    - Si score=1.0 trouvé, ne retourne QUE ce résultat
-    - Sinon, retourne top 5 résultats pertinents
+    v3.1: Recherche SIMPLE - On fait confiance au mécanisme d'Attention du LLM.
+    Plus de seuils artificiels, on retourne top 10 et le LLM décide via son Attention.
     """
-    all_results = []
-    
-    # STRATÉGIE 1: Recherche exacte
     try:
-        logging.info(f"🔍 Recherche pour '{mot_cle}'")
+        # Créer embedding du mot-clé
         emb_resp = await asyncio.to_thread(
             llm_client.embeddings.create,
             input=[mot_cle],
@@ -1087,41 +1138,33 @@ async def recherche_intelligente_filtree(mot_cle: str, llm_client: OpenAI, qdran
         )
         vector = emb_resp.data[0].embedding
         
+        # Recherche vectorielle simple
         result = await qdrant_client.query_points(
             collection_name=COLLECTION_NAME,
             query=vector,
-            limit=20,
+            limit=10,  # Top 10 pour donner du contexte au LLM
             with_payload=True
         )
+        
         hits = result.points
-        all_results.extend(hits)
         
-        # 🎯 FILTRAGE INTELLIGENT: Si score=1.0, ne garder QUE ce résultat
-        perfect_match = [h for h in hits if h.score >= 0.999]  # Score quasi-parfait
+        # Logging pour debug
+        if hits:
+            logging.info(f"🔍 RAG: {len(hits)} résultats pour '{mot_cle}'")
+            for i, h in enumerate(hits[:5], 1):
+                type_r = h.payload.get('type', 'mot')
+                titre = h.payload.get('element_français') or h.payload.get('titre_règle', 'N/A')
+                logging.info(f"   [{i}] {type_r.upper()} | Score: {h.score:.3f} | {titre[:40]}")
+        else:
+            logging.warning(f"⚠️ RAG: Aucun résultat pour '{mot_cle}'")
         
-        if perfect_match:
-            logging.info(f"✅ MATCH PARFAIT trouvé (score={perfect_match[0].score:.4f})")
-            return perfect_match[:1]  # Retourner UNIQUEMENT le match parfait
-        
-        logging.info(f"   -> {len(hits)} résultats trouvés (meilleur score: {hits[0].score if hits else 0:.4f})")
+        # Retourner TOUS les résultats
+        # Le mécanisme d'Attention du LLM décidera ce qui est pertinent
+        return hits
         
     except Exception as e:
         logging.error(f"❌ Recherche échouée: {e}")
-    
-    # STRATÉGIE 2: Si pas de match parfait, utiliser top 5 pertinents
-    unique_results = []
-    seen_ids = set()
-    
-    for hit in all_results:
-        if hit.id not in seen_ids and hit.score > RAG_SCORE_THRESHOLD:
-            seen_ids.add(hit.id)
-            unique_results.append(hit)
-            
-            if len(unique_results) >= 5:  # Limiter à 5 résultats max
-                break
-    
-    unique_results.sort(key=lambda x: x.score, reverse=True)
-    return unique_results
+        return []
 
 
 # --- PRÉ-TRAITEMENT INTELLIGENT ---
@@ -1217,6 +1260,56 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
         logging.info(f"💡 Question enrichie: {question_enrichie}")
     
     return question_enrichie, traductions
+
+
+# 🆕 v3.1: DÉTECTION DE MODE - Role Playing Adaptatif
+def detecter_mode_reponse(
+    user_message: str, 
+    apprentissage_info: Optional[Dict], 
+    type_info: Optional[Dict]
+) -> str:
+    """
+    Détermine le mode de réponse: conversationnel, élève, ou enseignant.
+    
+    Args:
+        user_message: Message de l'utilisateur
+        apprentissage_info: Résultat de detecter_apprentissage()
+        type_info: Résultat de detecter_type_connaissance()
+    
+    Returns:
+        "conversationnel" | "élève" | "enseignant"
+    """
+    import re
+    
+    # MODE ÉLÈVE: Si apprentissage détecté
+    if apprentissage_info or type_info:
+        return "élève"
+    
+    # MODE ENSEIGNANT: Si question sur N'ko
+    patterns_enseignement = [
+        r'comment\s+(dit-on|on\s+dit|dire|écrire|prononce)',
+        r'qu.est-ce\s+que.*en\s+n.?ko',
+        r'tradui[st]',
+        r'(ça|c.est)\s+(veut\s+dire|signifie)\s+quoi',
+        r'explique.*n.?ko',
+        r'c.est\s+quoi',
+        r'quel(?:le)?\s+(?:est|sont)',
+        r'combien\s+(?:de|y\s+a)',
+        r'pourquoi.*n.?ko',
+        r'donne[-\s]moi',
+        r'peux[-\s]tu\s+(?:me\s+)?(?:dire|donner|expliquer)',
+        r'écri[st]\s+.+\s+(?:en\s+)?(?:n.?ko|au\s+pluriel|au\s+singulier)',
+        r'marque\s+(?:du|de\s+la|des)',
+        r'forme\s+(?:du|de\s+la)',
+    ]
+    
+    message_lower = user_message.lower()
+    for pattern in patterns_enseignement:
+        if re.search(pattern, message_lower):
+            return "enseignant"
+    
+    # DÉFAUT: MODE CONVERSATIONNEL
+    return "conversationnel"
 
 
 # --- PHASE 5.1: DÉTECTION MULTI-TYPES COMPLÈTE ---
@@ -1436,6 +1529,33 @@ def detecter_apprentissage(message: str) -> Optional[Dict[str, str]]:
     
     # Nettoyer le message
     message_clean = message.strip().lower()
+    
+    # 🆕 v3.1: Pattern 0 - "apprend [ça/que] : X signifie Y" (PRIORITÉ)
+    pattern0 = r'(?:apprends?|mémorise[rz]?)\s+(?:ça|que)\s*[:;]\s*(.+?)\s+signifie\s+["\']?(.+?)(?:["\'])?$'
+    
+    match = re.search(pattern0, message_clean, re.IGNORECASE)
+    if match:
+        partie1 = match.group(1).strip()
+        partie2 = match.group(2).strip()
+        
+        # Vérifier présence N'ko
+        nko_pattern = re.compile(r'[\u07C0-\u07FF]+')
+        
+        has_nko_1 = bool(nko_pattern.search(partie1))
+        has_nko_2 = bool(nko_pattern.search(partie2))
+        
+        if has_nko_1 and not has_nko_2:
+            return {
+                'nko': partie1,
+                'français': partie2,
+                'pattern': 'explication_signifie'
+            }
+        elif has_nko_2 and not has_nko_1:
+            return {
+                'nko': partie2,
+                'français': partie1,
+                'pattern': 'explication_signifie'
+            }
     
     # Pattern 1: "apprends [que] X = Y" ou "mémorise [que] X = Y"
     pattern1 = r'(?:apprends?|mémorise[rz]?|enregistre[rz]?)\s*(?:que)?\s*[:;]?\s*(.+?)\s*[=:]\s*(.+)'
@@ -1934,7 +2054,7 @@ async def chat_endpoint(req: ChatRequest):
             action_type = 'regle_apprise' if type_info['type'] in ['règle', 'conjugaison', 'grammaire'] else 'mot_appris'
             progress_update = update_user_progress(session_id, action_type, type_info)
             
-            # 🆕 v3.0: Construction du message de célébration
+            # 🆕 v3.1: Construction du message de célébration
             celebration = ""
             
             # Nouveau niveau ?
@@ -1945,6 +2065,19 @@ async def chat_endpoint(req: ChatRequest):
             # Nouveaux badges ?
             for badge in progress_update['nouveaux_badges']:
                 celebration += f"\n\n{GamificationSystem.message_celebration(badge)}"
+            
+            # 🆕 v3.1: Message adaptatif selon VRAIE progression
+            if action_type == 'mot_appris':
+                if progress.mots_appris == 1:
+                    celebration += "\n\n🎉 Félicitations ! Tu as appris ton premier mot en N'ko !"
+                elif progress.mots_appris == 10:
+                    celebration += f"\n\n🎊 Bravo ! Tu as maintenant {progress.mots_appris} mots !"
+                elif progress.mots_appris == 50:
+                    celebration += f"\n\n🏆 Incroyable ! {progress.mots_appris} mots maîtrisés !"
+                elif progress.mots_appris == 100:
+                    celebration += f"\n\n💎 Centenaire atteint ! {progress.mots_appris} mots !"
+                elif progress.mots_appris % 25 == 0:
+                    celebration += f"\n\n🌟 Excellent ! {progress.mots_appris} mots en N'ko !"
             
             # Afficher progression
             xp_gain = GamificationSystem.XP_PAR_REGLE if action_type == 'regle_apprise' else GamificationSystem.XP_PAR_MOT
@@ -1999,6 +2132,18 @@ async def chat_endpoint(req: ChatRequest):
             # Nouveaux badges ?
             for badge in progress_update['nouveaux_badges']:
                 celebration += f"\n\n{GamificationSystem.message_celebration(badge)}"
+            
+            # 🆕 v3.1: Message adaptatif selon VRAIE progression
+            if progress.mots_appris == 1:
+                celebration += "\n\n🎉 Félicitations ! Tu as appris ton premier mot en N'ko !"
+            elif progress.mots_appris == 10:
+                celebration += f"\n\n🎊 Bravo ! Tu as maintenant {progress.mots_appris} mots !"
+            elif progress.mots_appris == 50:
+                celebration += f"\n\n🏆 Incroyable ! {progress.mots_appris} mots maîtrisés !"
+            elif progress.mots_appris == 100:
+                celebration += f"\n\n💎 Centenaire atteint ! {progress.mots_appris} mots !"
+            elif progress.mots_appris % 25 == 0:
+                celebration += f"\n\n🌟 Excellent ! {progress.mots_appris} mots en N'ko !"
             
             # Afficher progression
             xp_restants = progress_update['xp_prochain_niveau'] - progress_update['xp_total']
@@ -2056,24 +2201,51 @@ async def chat_endpoint(req: ChatRequest):
                         for h in hits[:10]
                     ]
 
-                # Formater le contexte RAG
+                # 🆕 v3.1: Formater contexte RAG avec GROUPEMENT PAR TYPE
                 if hits:
                     logging.info(f"✅ {len(hits)} résultat(s) pertinent(s)")
                     
-                    # 🎯 Si score parfait, mettre en évidence
-                    if hits[0].score >= 0.999:
-                        contexte_rag_text = "⭐ RÉPONSE EXACTE TROUVÉE:\n"
-                    else:
-                        contexte_rag_text = "📚 Connaissances pertinentes:\n"
+                    # Grouper par type pour clarté
+                    regles = [h for h in hits[:10] if h.payload.get('type') == 'règle']
+                    mots = [h for h in hits[:10] if h.payload.get('type') == 'mot']
+                    autres = [h for h in hits[:10] if h.payload.get('type') not in ['règle', 'mot']]
                     
-                    lignes = []
-                    for h in hits:
-                        ligne = formater_connaissance_pour_contexte(h.payload)
-                        lignes.append(ligne)
-                    contexte_rag_text += '\n'.join(lignes)
+                    parts = []
+                    
+                    # 🎯 RÈGLES EN PREMIER (haute visibilité pour guider l'Attention)
+                    if regles:
+                        parts.append("🎯 RÈGLES GRAMMATICALES ENSEIGNÉES PAR L'UTILISATEUR:")
+                        for r in regles[:3]:
+                            titre = r.payload.get('titre_règle', '')
+                            explic = r.payload.get('explication_règle', '')
+                            parts.append(f"\n📖 {titre}")
+                            parts.append(f"   {explic}")
+                        parts.append("")
+                    
+                    # 📚 VOCABULAIRE
+                    if mots:
+                        parts.append("📚 VOCABULAIRE APPRIS:")
+                        for m in mots[:8]:
+                            nko = m.payload.get('element_nko', '')
+                            fr = m.payload.get('element_français', '')
+                            parts.append(f"  • {fr} = {nko}")
+                        parts.append("")
+                    
+                    # ℹ️ AUTRES CONNAISSANCES
+                    if autres:
+                        parts.append("ℹ️ AUTRES CONNAISSANCES:")
+                        for a in autres[:3]:
+                            ligne = formater_connaissance_pour_contexte(a.payload)
+                            parts.append(f"  • {ligne}")
+                    
+                    contexte_rag_text = "\n".join(parts)
+                    
+                    # Si aucun résultat pertinent
+                    if not regles and not mots and not autres:
+                        contexte_rag_text = "[Aucune connaissance pertinente]"
                 else:
                     logging.warning(f"⚠️ Aucun résultat trouvé")
-                    contexte_rag_text = "[Aucune connaissance pertinente trouvée]"
+                    contexte_rag_text = "[Base de connaissances vide]"
 
                 # Ajouter les traductions contextuelles
                 if traductions_contexte:
@@ -2081,7 +2253,7 @@ async def chat_endpoint(req: ChatRequest):
                         f"- {t['français']} = {t['nko']}"
                         for t in traductions_contexte
                     )
-                    contexte_rag_text = contexte_extra + '\n' + contexte_rag_text
+                    contexte_rag_text = contexte_extra + '\n\n' + contexte_rag_text
 
             except Exception as e:
                 logging.error(f"❌ Erreur RAG: {e}", exc_info=True)
@@ -2096,8 +2268,22 @@ async def chat_endpoint(req: ChatRequest):
         logging.info(f"📤 CONTEXTE ENVOYÉ AU LLM:\n{contexte_rag_text}")
         logging.info(f"📜 HISTORIQUE CONVERSATION:\n{historique_conversation[:500]}...")
 
-        # 🆕 v3.0: Build prompt avec TOUS les paramètres d'excellence conversationnelle
+        # 🆕 v3.1: DÉTERMINER MODE DE RÉPONSE (Role Playing Adaptatif)
+        # Note: type_info et apprentissage_info déjà définis plus haut dans le flow
+        mode = detecter_mode_reponse(
+            req.user_message,
+            apprentissage_info if 'apprentissage_info' in locals() else None,
+            type_info if 'type_info' in locals() else None
+        )
+        logging.info(f"🎭 Mode détecté: {mode.upper()}")
+        
+        # Instructions spécifiques au mode (Few-Shot Learning)
+        instruction_mode = MODE_INSTRUCTIONS.get(mode, MODE_INSTRUCTIONS["conversationnel"])
+
+        # 🆕 v3.1: Build prompt avec Chain-of-Thought, Few-Shot Learning et Role Playing
         prompt = PROMPT_SYSTEM_EXCELLENCE.format(
+            mode_actuel=mode.upper(),
+            instruction_mode=instruction_mode,
             emotion_detectee=emotion.value if emotion else "neutre",
             emotion_confiance=f"{confiance:.2f}" if confiance else "0.50",
             niveau_engagement=niveau_engagement,
