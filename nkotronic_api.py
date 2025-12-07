@@ -75,30 +75,30 @@ def normaliser_texte(text: str) -> str:
     return unicodedata.normalize("NFC", text) if text else text
 
 # ====================== PROMPT SYSTÈME STRICT (OBLIGATOIRE) ======================
-PROMPT_SYSTEM_STRICT = """Tu es Nkotronic v3.2.1, l’assistant officiel et fidèle de la langue et de l’écriture N’ko.
+PROMPT_SYSTEM_STRICT = """Tu es Nkotronic v3.2.1, l'assistant officiel et fidèle de la langue et de l'écriture N'ko.
 
 RÈGLES IMPÉRATIVES ET NON NÉGOCIABLES :
 
 1. Hiérarchie absolue des sources  
-   - SOURCE UNIQUE ET SUPRÊME → TOUT LE CONTEXTE RAG que je te fournis à chaque requête (les mots, règles, listes, faits que l’utilisateur t’a appris via « apprendre … »).  
+   - SOURCE UNIQUE ET SUPRÊME → TOUT LE CONTEXTE RAG que je te fournis à chaque requête (les mots, règles, listes, faits que l'utilisateur t'a appris via « apprendre … »).  
    - SOURCE SECONDAIRE → Tes connaissances générales GPT-4o (uniquement en dernier recours).
 
-2. Quand l’utilisateur pose une question sur le N’ko (grammaire, vocabulaire, tons, écriture, culture, etc.) :  
+2. Quand l'utilisateur pose une question sur le N'ko (grammaire, vocabulaire, tons, écriture, culture, etc.) :  
    → TU DOIS LIRE ET ANALYSER LA TOTALITÉ RADICALE DU CONTEXTE RAG FOURNI.  
    → TU DOIS UTILISER ABSOLUMENT TOUT CE QUI EST PERTINENT dans ce RAG pour construire ta réponse.  
-   → TU DOIS FOURNIR UNE RÉPONSE COMPLÈTE, PRÉCISE ET EXHAUSTIVE en t’appuyant sur CHAQUE élément pertinent du RAG (mots, règles entières, listes complètes, exemples, explications, etc.).  
-   → TU N’AS PAS LE DROIT de résumer ou de donner « quelques exemples » quand le RAG contient une liste ou une explication complète.
+   → TU DOIS FOURNIR UNE RÉPONSE COMPLÈTE, PRÉCISE ET EXHAUSTIVE en t'appuyant sur CHAQUE élément pertinent du RAG (mots, règles entières, listes complètes, exemples, explications, etc.).  
+   → TU N'AS PAS LE DROIT de résumer ou de donner « quelques exemples » quand le RAG contient une liste ou une explication complète.
 
-3. Cas où tu as le droit d’utiliser tes connaissances générales :  
-   → UNIQUEMENT si, après avoir lu TOUT le RAG, tu constates qu’il n’y a VRAIMENT AUCUN élément pertinent sur le sujet demandé.  
+3. Cas où tu as le droit d'utiliser tes connaissances générales :  
+   → UNIQUEMENT si, après avoir lu TOUT le RAG, tu constates qu'il n'y a VRAIMENT AUCUN élément pertinent sur le sujet demandé.  
    → Dans ce cas uniquement, tu réponds en commençant obligatoirement par :  
-     « D’après mes connaissances générales (ce sujet n’apparaît pas encore dans les manuels que tu m’as enseignés) : … »
+     « D'après mes connaissances générales (ce sujet n'apparaît pas encore dans les manuels que tu m'as enseignés) : … »
 
 4. Interdictions formelles  
    - Ne jamais dire « selon le contexte », « dans la base », « dans le RAG ».  
-   - Dire uniquement : « Selon les manuels de référence N’ko… », « D’après les règles que tu m’as enseignées… », « Dans les ouvrages officiels qu’on m’a appris… »
+   - Dire uniquement : « Selon les manuels de référence N'ko… », « D'après les règles que tu m'as enseignées… », « Dans les ouvrages officiels qu'on m'a appris… »
 
-Tu es le protecteur intransigeant de la pureté des connaissances N’ko que l’utilisateur t’a confiées. Tu les défends intégralement et exclusivement."""
+Tu es le protecteur intransigeant de la pureté des connaissances N'ko que l'utilisateur t'a confiées. Tu les défends intégralement et exclusivement."""
 
 # ====================== SESSION MANAGEMENT ======================
 async def get_or_create_session(session_id: Optional[str] = None) -> str:
@@ -142,21 +142,36 @@ async def recherche_rag(query: str) -> str:
             query=emb.data[0].embedding,
             limit=15,
             with_payload=True,
-            score_threshold=0.70
+            score_threshold=0.60  # ← Abaissé à 0.60 pour plus de résultats
         )
         hits = results.points
         if not hits:
             return "Aucune information pertinente dans les manuels enseignés."
-        lines = ["Selon les manuels de référence N’ko que tu m’as enseignés :"]
-        for h in hits[:10]:
-            p = h.payload
-            fr = p.get("element_français", "")
-            nko = p.get("element_nko", "")
-            regle = p.get("explication_règle", "")
-            if fr and nko:
-                lines.append(f"• {fr} → {nko}")
-            elif regle:
-                lines.append(f"• RÈGLE : {regle}")
+        
+        # Séparer par type
+        regles = [h for h in hits if h.payload.get("type") == "règle"]
+        mots = [h for h in hits if h.payload.get("type") == "mot"]
+        
+        lines = ["Selon les manuels de référence N'ko que tu m'as enseignés :"]
+        
+        # Règles d'abord
+        if regles:
+            lines.append("\n🎯 RÈGLES GRAMMATICALES :")
+            for h in regles[:5]:
+                p = h.payload
+                nko = p.get("element_nko", "")
+                fr = p.get("element_français", "")
+                lines.append(f"• {nko} → {fr}")
+        
+        # Vocabulaire ensuite
+        if mots:
+            lines.append("\n📚 VOCABULAIRE :")
+            for h in mots[:10]:
+                p = h.payload
+                fr = p.get("element_français", "")
+                nko = p.get("element_nko", "")
+                lines.append(f"• {fr} = {nko}")
+        
         return "\n".join(lines)
     except Exception as e:
         logging.error(f"Erreur RAG: {e}")
@@ -164,6 +179,26 @@ async def recherche_rag(query: str) -> str:
 
 async def detecter_et_apprendre(message: str):
     msg = normaliser_texte(message.lower())
+    
+    # === RÈGLE ===
+    if msg.startswith("apprendre règle :") or msg.startswith("apprendre règle:"):
+        regle_nko = message.split(":", 1)[1].strip().split("désigne")[0].strip() if "désigne" in message else message.split(":", 1)[1].strip()
+        explication_fr = message.split("signifie", 1)[1].strip() if "signifie" in message else message.split(":", 1)[1].strip()
+        
+        # Embedding sur le N'ko + sur le français
+        emb_nko = await LLM_CLIENT.embeddings.create(input=[regle_nko], model=EMBEDDING_MODEL)
+        emb_fr = await LLM_CLIENT.embeddings.create(input=[explication_fr], model=EMBEDDING_MODEL)
+        
+        # On stocke DEUX points
+        await QDRANT_CLIENT.upsert(collection_name=COLLECTION_NAME, points=[
+            PointStruct(id=str(uuid.uuid4()), vector=emb_nko.data[0].embedding,
+                       payload={"element_nko": regle_nko, "element_français": explication_fr, "type": "règle"}),
+            PointStruct(id=str(uuid.uuid4()), vector=emb_fr.data[0].embedding,
+                       payload={"element_nko": regle_nko, "element_français": explication_fr, "type": "règle"})
+        ])
+        return f"Règle apprise : {regle_nko} = {explication_fr}"
+    
+    # === MOT ===
     if msg.startswith("apprendre mot:") or msg.startswith("apprendre mot :"):
         content = message.split(":", 1)[1].strip()
         if "=" in content:
@@ -179,7 +214,7 @@ async def detecter_et_apprendre(message: str):
                     payload={"element_français": fr, "element_nko": nko, "type": "mot"}
                 )
                 await QDRANT_CLIENT.upsert(collection_name=COLLECTION_NAME, points=[point])
-                return f"J’ai bien appris : {fr} = {nko}"
+                return f"J'ai bien appris : {fr} = {nko}"
     return None
 
 # ====================== LIFESPAN ======================
