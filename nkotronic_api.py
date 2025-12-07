@@ -841,9 +841,9 @@ Tu as DEUX sources de connaissances :
   ❌ JAMAIS dire "Je ne trouve pas dans le CONTEXTE RAG"
   
   ✅ Dire plutôt :
-     - "Selon ce que tu m'as appris..."
-     - "Tu m'as enseigné que..."
-     - "D'après ce que je sais grâce à toi..."
+     - "Selon l'état de mes connaissances actuelles..."
+     - "Les informations dans mes mises à jour..."
+     - "D'après les données auxquelles j'ai accès en ce moment..."
      - Si info manquante : "Je ne sais pas encore" ou "Apprends-le moi"
 
 """
