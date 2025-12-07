@@ -1651,7 +1651,142 @@ def detecter_liste_multilignes(message: str) -> Optional[Dict]:
     return None
 
 
-# --- PHASE 5.1: DÉTECTION MULTI-TYPES COMPLÈTE ---
+# ═══════════════════════════════════════════════════════════════════════════
+# 🆕 v3.2.0-STRICT-FIX2: DÉTECTION STRICTE AVEC .strip()
+# ═══════════════════════════════════════════════════════════════════════════
+
+def detecter_apprentissage_strict(message: str) -> Optional[Dict]:
+    """
+    🆕 v3.2.0-STRICT: Détection STRICTE basée sur préfixes explicites uniquement.
+    
+    ⚠️ FIX: message.strip() pour tolérer espaces/retours ligne au début
+    
+    Préfixes autorisés (8 commandes):
+    1. "apprendre mot :"
+    2. "apprendre règle :"
+    3. "apprendre fait sur [nom] :"
+    4. "apprendre anecdote :"
+    5. "apprendre liste :"
+    6. "apprendre conjugaison :"
+    7. "apprendre expression :"
+    8. "apprendre proverbe :"
+    
+    Tout le reste = PAS d'apprentissage = conversation normale
+    """
+    import re
+    
+    # ✅ CRITICAL FIX: .strip() pour enlever espaces/retours ligne début/fin
+    message = message.replace("\\'", "'").replace('\\"', '"')
+    message_clean = message.strip()
+    message_lower = message_clean.lower()
+    
+    # 1️⃣ APPRENDRE MOT
+    if message_lower.startswith("apprendre mot :") or message_lower.startswith("apprendre mot:"):
+        contenu = re.sub(r'^apprendre mot\s*:\s*', '', message_clean, flags=re.IGNORECASE)
+        match = re.match(r'^(.+?)\s*=\s*(.+)$', contenu.strip())
+        if not match:
+            return {'type': 'erreur', 'message': '❌ Format invalide. Utilise : apprendre mot : français = nko'}
+        
+        partie1, partie2 = match.group(1).strip(), match.group(2).strip()
+        nko_pattern = re.compile(r'[\u07C0-\u07FF]+')
+        has_nko_1, has_nko_2 = bool(nko_pattern.search(partie1)), bool(nko_pattern.search(partie2))
+        
+        if has_nko_1 and not has_nko_2:
+            return {'type': 'mot', 'element_français': partie2, 'element_nko': partie1, 'concept_identifie': 'Vocabulaire'}
+        elif has_nko_2 and not has_nko_1:
+            return {'type': 'mot', 'element_français': partie1, 'element_nko': partie2, 'concept_identifie': 'Vocabulaire'}
+        else:
+            return {'type': 'erreur', 'message': '❌ Format : français = ߒߞߏ'}
+    
+    # 2️⃣ APPRENDRE RÈGLE
+    elif message_lower.startswith("apprendre règle :") or message_lower.startswith("apprendre regle :") or \
+         message_lower.startswith("apprendre règle:") or message_lower.startswith("apprendre regle:"):
+        contenu = re.sub(r'^apprendre r[èe]gle\s*:\s*', '', message_clean, flags=re.IGNORECASE)
+        if not contenu.strip():
+            return {'type': 'erreur', 'message': '❌ Règle vide'}
+        titre = contenu[:60] + ("..." if len(contenu) > 60 else "")
+        return {'type': 'règle', 'titre_règle': titre, 'explication_règle': contenu, 'concept_identifie': 'Grammaire'}
+    
+    # 3️⃣ APPRENDRE FAIT SUR
+    elif message_lower.startswith("apprendre fait sur"):
+        match = re.match(r'apprendre fait sur\s+(.+?)\s*:\s*(.+)', message_clean, flags=re.IGNORECASE | re.DOTALL)
+        if not match:
+            return {'type': 'erreur', 'message': '❌ Format invalide'}
+        return {'type': 'fait', 'titre': match.group(1).strip(), 'contenu': match.group(2).strip(), 'concept_identifie': 'Culture'}
+    
+    # 4️⃣ APPRENDRE ANECDOTE
+    elif message_lower.startswith("apprendre anecdote :") or message_lower.startswith("apprendre anecdote:"):
+        contenu = re.sub(r'^apprendre anecdote\s*:\s*', '', message_clean, flags=re.IGNORECASE)
+        if not contenu.strip():
+            return {'type': 'erreur', 'message': '❌ Anecdote vide'}
+        titre = contenu[:50] + ("..." if len(contenu) > 50 else "")
+        return {'type': 'anecdote', 'titre': titre, 'contenu': contenu, 'concept_identifie': 'Culture'}
+    
+    # 5️⃣ APPRENDRE LISTE
+    elif message_lower.startswith("apprendre liste :") or message_lower.startswith("apprendre liste:"):
+        contenu = re.sub(r'^apprendre liste\s*:\s*', '', message_clean, flags=re.IGNORECASE)
+        lines = [l.strip() for l in contenu.strip().split('\n') if l.strip()]
+        if len(lines) < 1:
+            return {'type': 'erreur', 'message': '❌ Liste vide'}
+        
+        nom_liste = lines[0] if '=' not in lines[0] else f"Liste de {len(lines)} mots"
+        elements_start = 1 if '=' not in lines[0] else 0
+        elements, nko_pattern = [], re.compile(r'[\u07C0-\u07FF]+')
+        
+        for line in lines[elements_start:]:
+            match = re.match(r'^(.+?)\s*=\s*(.+)$', line)
+            if match:
+                p1, p2 = match.group(1).strip(), match.group(2).strip()
+                if nko_pattern.search(p1) and not nko_pattern.search(p2):
+                    elements.append({'français': p2, 'nko': p1})
+                elif nko_pattern.search(p2) and not nko_pattern.search(p1):
+                    elements.append({'français': p1, 'nko': p2})
+        
+        if not elements:
+            return {'type': 'erreur', 'message': '❌ Aucun élément valide'}
+        return {'type': 'liste', 'nom_liste': nom_liste, 'elements_liste': elements, 'concept_identifie': 'Vocabulaire'}
+    
+    # 6️⃣ APPRENDRE CONJUGAISON
+    elif message_lower.startswith("apprendre conjugaison :") or message_lower.startswith("apprendre conjugaison:"):
+        contenu = re.sub(r'^apprendre conjugaison\s*:\s*', '', message_clean, flags=re.IGNORECASE)
+        match = re.match(r'([\u07C0-\u07FF]+)\s*\(([^)]+)\)\s*:\s*(.+)', contenu, flags=re.DOTALL)
+        if not match:
+            return {'type': 'erreur', 'message': '❌ Format invalide'}
+        
+        formes = {}
+        for item in match.group(3).strip().split(','):
+            if ':' in item:
+                temps, forme = item.split(':', 1)
+                formes[temps.strip()] = forme.strip()
+        if not formes:
+            return {'type': 'erreur', 'message': '❌ Aucune forme'}
+        return {'type': 'conjugaison', 'verbe_nko': match.group(1).strip(), 'verbe_français': match.group(2).strip(), 'formes': formes, 'concept_identifie': 'Grammaire'}
+    
+    # 7️⃣ APPRENDRE EXPRESSION
+    elif message_lower.startswith("apprendre expression :") or message_lower.startswith("apprendre expression:"):
+        contenu = re.sub(r'^apprendre expression\s*:\s*', '', message_clean, flags=re.IGNORECASE)
+        match = re.match(r'^([\u07C0-\u07FF\s]+)\s*=\s*(.+)$', contenu)
+        if not match:
+            return {'type': 'erreur', 'message': '❌ Format invalide'}
+        trad_lit = None
+        lit_match = re.search(r'\(litt[éeralement]*\s*:\s*([^)]+)\)', match.group(2), re.IGNORECASE)
+        if lit_match:
+            trad_lit = lit_match.group(1).strip()
+        return {'type': 'expression', 'texte_nko': match.group(1).strip(), 'signification': match.group(2).strip(), 'traduction_littérale': trad_lit, 'concept_identifie': 'Expression'}
+    
+    # 8️⃣ APPRENDRE PROVERBE
+    elif message_lower.startswith("apprendre proverbe :") or message_lower.startswith("apprendre proverbe:"):
+        contenu = re.sub(r'^apprendre proverbe\s*:\s*', '', message_clean, flags=re.IGNORECASE)
+        match = re.match(r'^([\u07C0-\u07FF\s]+)\s*=\s*(.+)$', contenu)
+        if not match:
+            return {'type': 'erreur', 'message': '❌ Format invalide'}
+        return {'type': 'proverbe', 'texte_nko': match.group(1).strip(), 'signification': match.group(2).strip(), 'concept_identifie': 'Culture'}
+    
+    # ❌ AUCUN PRÉFIXE = PAS D'APPRENTISSAGE
+    return None
+
+
+# --- PHASE 5.1: DÉTECTION MULTI-TYPES COMPLÈTE (LEGACY - gardée pour compatibilité) ---
 def detecter_type_connaissance(message: str) -> Optional[Dict]:
     """Détecte le type de connaissance dans le message."""
     import re
@@ -2172,21 +2307,34 @@ async def chat_endpoint(req: ChatRequest):
                 } if req.debug else None
             )
         
-        # Détecter type de connaissance (règles, faits, listes, etc.)
-        type_info = detecter_type_connaissance(req.user_message)
+        # 🆕 v3.2.0-STRICT-FIX2: Détection STRICTE basée sur préfixes explicites
+        # ⚡ IMPORTANT: Détection AVANT enrichissement RAG pour éviter pollution
+        apprentissage_info = detecter_apprentissage_strict(req.user_message)
         
-        if type_info:
-            logging.info(f"🎓 {type_info['type'].upper()} détecté: {type_info}")
+        # Si erreur de format détectée
+        if apprentissage_info and apprentissage_info.get('type') == 'erreur':
+            message_erreur = apprentissage_info['message']
+            ajouter_message_memoire(session_id, 'user', req.user_message)
+            ajouter_message_memoire(session_id, 'assistant', message_erreur)
+            return ChatResponse(
+                response_text=message_erreur,
+                session_id=session_id,
+                memory_update=None,
+                debug_info={'erreur_format': True} if req.debug else None
+            )
+        
+        if apprentissage_info:
+            logging.info(f"🎓 {apprentissage_info['type'].upper()} détecté: {apprentissage_info}")
             
             resultat = await apprendre_connaissance(
-                connaissance_data=type_info,
+                connaissance_data=apprentissage_info,
                 llm_client=LLM_CLIENT,
                 qdrant_client=QDRANT_CLIENT
             )
             
             # GAMIFICATION - Mise à jour progression
-            action_type = 'regle_apprise' if type_info['type'] in ['règle', 'conjugaison', 'grammaire'] else 'mot_appris'
-            progress_update = update_user_progress(session_id, action_type, type_info)
+            action_type = 'regle_apprise' if apprentissage_info['type'] in ['règle', 'conjugaison', 'grammaire'] else 'mot_appris'
+            progress_update = update_user_progress(session_id, action_type, apprentissage_info)
             
             # Construction du message de célébration
             celebration = ""
@@ -2227,7 +2375,7 @@ async def chat_endpoint(req: ChatRequest):
                 memory_update=None,
                 debug_info={
                     'apprentissage': True,
-                    'type': type_info['type'],
+                    'type': apprentissage_info['type'],
                     'status': resultat['status'],
                     'details': resultat
                 } if req.debug else None
