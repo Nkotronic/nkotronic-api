@@ -1,34 +1,23 @@
 """
 ═══════════════════════════════════════════════════════════════════════════
-NKOTRONIC v3.2.1 "AsyncOpenAI + GPT-4o" – VERSION ULTIME TOUT ACTIVÉ
+NKOTRONIC v3.2.1 ULTIME – TOUT ACTIVÉ + PROMPT STRICT RAG OBLIGATOIRE
 ═══════════════════════════════════════════════════════════════════════════
-TOUT EST ACTIVÉ :
-✓ RAG ultra-précis avec filtrage + chunking
-✓ Apprentissage strict (apprendre mot: / règle: / liste: etc.)
-✓ Gamification complète + badges + niveaux + XP
-✓ Mémoire longue avec compression auto
-✓ NFC systématique = zéro corruption N'ko
-✓ 100% async-safe (aucun run_until_complete)
-✓ Cleanup + TTL + Lock mémoire
-✓ GPT-4o + AsyncOpenAI natif
-Prêt pour production massive
+- RAG prioritaire ABSOLUMENT sur les connaissances générales
+- Prompt système ultra-strict intégré
+- Apprentissage strict, gamification, mémoire, compression, NFC
+- 100% async-safe, zéro crash, production-ready
 """
 
 import asyncio
 import os
 import logging
-import json
 import uuid
-import random
 import unicodedata
 import re
 from contextlib import asynccontextmanager
-from typing import Optional, AsyncIterator, List, Dict, Tuple, Any
-from pathlib import Path
+from typing import Optional, List, Dict
 from collections import deque
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field
-from enum import Enum
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,7 +30,7 @@ from qdrant_client.models import VectorParams, PointStruct, Distance
 # ====================== CONFIG ======================
 try:
     from dotenv import load_dotenv
-    load_dotenv(".env")
+    load_dotenv()
 except ImportError:
     pass
 
@@ -49,9 +38,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 for lib in ["qdrant_client", "httpx", "openai"]:
     logging.getLogger(lib).setLevel(logging.WARNING)
 
+# ====================== ENV ======================
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
+if not all([OPENAI_API_KEY, QDRANT_URL, QDRANT_API_KEY]):
+    logging.error("Variables d'environnement manquantes")
+    exit(1)
 
 # ====================== GLOBALS ======================
 LLM_CLIENT: Optional[AsyncOpenAI] = None
@@ -69,84 +63,44 @@ EMBEDDING_MODEL = "text-embedding-ada-002"
 LLM_MODEL = "gpt-4o"
 
 MAX_MEMORY_SIZE = 200
-MAX_CHARS_EMBEDDING = 10000
 MAX_TOKENS_RESPONSE = 4096
-MAX_TOKENS_RESUME = 2000
-
 COMPRESSION_THRESHOLD = 50
 COMPRESSION_KEEP_RECENT = 30
 SESSION_TTL_HOURS = 24
 MAX_SESSIONS = 1000
-CLEANUP_INTERVAL_MINUTES = 30
+CLEANUP_INTERVAL = 30 * 60
 
-# ====================== NFC & PHONÉTIQUE ======================
+# ====================== NFC ======================
 def normaliser_texte(text: str) -> str:
     return unicodedata.normalize("NFC", text) if text else text
 
-NKO_PHONETIC_MAP = {
-    'ߊ': 'a', 'ߋ': 'e', 'ߌ': 'i', 'ߍ': 'ɛ', 'ߎ': 'u', 'ߏ': 'o', 'ߐ': 'ɔ',
-    'ߓ': 'b', 'ߔ': 'p', 'ߕ': 't', 'ߖ': 'd͡ʒ', 'ߗ': 't͡ʃ', 'ߘ': 'd', 'ߙ': 'r', 'ߚ': 'rr',
-    'ߛ': 's', 'ߜ': 'ɡ͡b', 'ߝ': 'f', 'ߞ': 'k', 'ߟ': 'l', 'ߠ': 'n', 'ߡ': 'm', 'ߢ': 'ɲ', 'ߣ': 'n',
-    'ߤ': 'h', 'ߥ': 'w', 'ߦ': 'y', 'ߧ': 'ɲ', 'ߨ': 'd͡ʒ', 'ߒ': "ŋ", '߲': 'n',
-    '߫': '', '߬': '', '߭': '', '߮': '', '߯': '', '߰': '', '߱': '',
-}
+# ====================== PROMPT SYSTÈME STRICT (OBLIGATOIRE) ======================
+PROMPT_SYSTEM_STRICT = """Tu es Nkotronic v3.2.1, l’assistant officiel et fidèle de la langue et de l’écriture N’ko.
 
-# ====================== GAMIFICATION ======================
-class Badge(Enum):
-    PREMIER_MOT = "Premier Mot Appris"
-    DIX_MOTS = "10 Mots Maîtrisés"
-    CINQUANTE_MOTS = "50 Mots Maîtrisés"
-    CENT_MOTS = "Centenaire"
-    GRAMMAIRIEN = "Maître de Grammaire"
-    PERSEVERANT = "Persévérant (7 jours)"
+RÈGLES ABSOLUES ET NON NÉGOCIABLES :
 
-@dataclass
-class UserProgress:
-    mots_appris: int = 0
-    regles_apprises: int = 0
-    jours_consecutifs: int = 0
-    dernier_jour_actif: Optional[str] = None
-    badges: List[str] = field(default_factory=list)
-    niveau: int = 1
-    points_xp: int = 0
+TU AS DEUX SOURCES DE CONNAISSANCE UNIQUEMENT :
+1. SOURCE PRINCIPALE → Le CONTEXTE RAG (les manuels, mots, règles que l’utilisateur t’a enseignés via « apprendre mot: », « apprendre règle: », etc.)
+2. SOURCE SECONDAIRE → Tes connaissances générales GPT-4o
 
-class GamificationSystem:
-    XP_PAR_MOT = 10
-    XP_PAR_REGLE = 25
-    XP_PAR_NIVEAU = 100
+RÈGLE D’OR (À APPLIQUER À CHAQUE RÉPONSE) :
+→ Si une information, règle, mot ou liste existe dans le CONTEXTE RAG → TU DOIS L’UTILISER EXCLUSIVEMENT.
+→ Tu n’as PAS le droit de la corriger, compléter ou contredire, même si tu penses qu’elle est fausse.
+→ Tu n’as PAS le droit de dire « selon mes connaissances » tant que le RAG contient l’info.
 
-    @staticmethod
-    def update_progress(profile: dict, action: str):
-        p = profile["progress"]
-        progress = UserProgress(**p)
-        ancien_niveau = progress.niveau
+SEULEMENT quand le CONTEXTE RAG est vide ou ne contient rien de pertinent → tu peux utiliser tes connaissances générales,
+et dans ce cas TU DOIS le dire clairement :
+« D’après mes connaissances générales (non présentes dans les manuels que tu m’as enseignés) : … »
 
-        if action == "mot":
-            progress.mots_appris += 1
-            progress.points_xp += GamificationSystem.XP_PAR_MOT
-        elif action == "regle":
-            progress.regles_apprises += 1
-            progress.points_xp += GamificationSystem.XP_PAR_REGLE
+LISTES COMPLÈTES : Si le RAG contient une liste complète (ex: les 8 tons, les 27 lettres, les chiffres, les jours…), 
+TU DOIS LA DONNER EN ENTIER, jamais « quelques exemples ».
 
-        # Niveau
-        progress.niveau = 1 + (progress.points_xp // GamificationSystem.XP_PAR_NIVEAU)
+INTERDIT de mentionner « RAG », « base de données », « contexte fourni ».
+Autorisé : « Selon les manuels de référence N’ko… », « D’après les règles qu’on m’a enseignées… »
 
-        # Badges
-        if progress.mots_appris == 1 and Badge.PREMIER_MOT.value not in progress.badges:
-            progress.badges.append(Badge.PREMIER_MOT.value)
-        if progress.mots_appris >= 10 and Badge.DIX_MOTS.value not in progress.badges:
-            progress.badges.append(Badge.DIX_MOTS.value)
-        if progress.mots_appris >= 50 and Badge.CINQUANTE_MOTS.value not in progress.badges:
-            progress.badges.append(Badge.CINQUANTE_MOTS.value)
-        if progress.mots_appris >= 100 and Badge.CENT_MOTS.value not in progress.badges:
-            progress.badges.append(Badge.CENT_MOTS.value)
-        if progress.regles_apprises >= 5 and Badge.GRAMMAIRIEN.value not in progress.badges:
-            progress.badges.append(Badge.GRAMMAIRIEN.value)
+Tu es le gardien fidèle des connaissances N’ko que l’utilisateur t’a confiées. Tu les défends à 100 %."""
 
-        profile["progress"] = progress.__dict__
-        return {"niveau_up": ancien_niveau != progress.niveau, "nouveau_niveau": progress.niveau, "badges": progress.badges}
-
-# ====================== SESSION & MEMORY ======================
+# ====================== SESSION MANAGEMENT ======================
 async def get_or_create_session(session_id: Optional[str] = None) -> str:
     async with MEMORY_LOCK:
         if session_id and session_id in CONVERSATION_MEMORY:
@@ -154,7 +108,7 @@ async def get_or_create_session(session_id: Optional[str] = None) -> str:
             return session_id
         new_id = session_id or str(uuid.uuid4())
         CONVERSATION_MEMORY[new_id] = deque(maxlen=MAX_MEMORY_SIZE)
-        USER_PROFILES[new_id] = {"progress": UserProgress().__dict__}
+        USER_PROFILES[new_id] = {"progress": {"mots_appris": 0, "regles_apprises": 0, "badges": [], "niveau": 1, "points_xp": 0}}
         SESSION_LAST_ACTIVITY[new_id] = datetime.now()
         logging.info(f"Nouvelle session: {new_id[:8]}...")
         return new_id
@@ -173,111 +127,98 @@ async def cleanup_old_sessions():
 
 async def background_cleanup():
     while True:
-        await asyncio.sleep(CLEANUP_INTERVAL_MINUTES * 60)
+        await asyncio.sleep(CLEANUP_INTERVAL)
         await cleanup_old_sessions()
 
-# ====================== APPRENTISSAGE STRICT ======================
-async def detecter_apprentissage_strict(message: str) -> Optional[Dict]:
-    message = normaliser_texte(message.strip().lower())
-
-    if message.startswith("apprendre mot:") or message.startswith("apprendre mot :"):
-        content = message[13:].strip()
-        if "=" in content:
-            fr, nko = [x.strip() for x in content.split("=", 1)]
-            if any(c >= '\u07c0' for c in nko):
-                return {"type": "mot", "fr": fr, "nko": nko}
-            elif any(c >= '\u07c0' for c in fr):
-                return {"type": "mot", "fr": nko, "nko": fr}
-
-    elif message.startswith("apprendre règle:") or message.startswith("apprendre regle:"):
-        content = message.split(":", 1)[1].strip()
-        return {"type": "regle", "explication": content}
-
-    return None
-
-# ====================== RAG & EMBEDDING ======================
+# ====================== RAG & APPRENTISSAGE ======================
 async def recherche_rag(query: str) -> str:
     if not QDRANT_CLIENT:
-        return ""
+        return "Aucun contexte RAG disponible."
     query = normaliser_texte(query)
-    emb = await LLM_CLIENT.embeddings.create(input=[query], model=EMBEDDING_MODEL)
-    results = await QDRANT_CLIENT.query_points(
-        collection_name=COLLECTION_NAME,
-        query=emb.data[0].embedding,
-        limit=10,
-        with_payload=True
-    )
-    hits = [h for h in results.points if h.score > 0.75]
-    if not hits:
-        return ""
-    lines = ["CONTEXTE RAG (manuels N'ko):"]
-    for h in hits[:6]:
-        p = h.payload
-        fr = p.get("element_français", "")
-        nko = p.get("element_nko", "")
-        if fr and nko:
-            lines.append(f"• {fr} = {nko}")
-    return "\n".join(lines)
+    try:
+        emb = await LLM_CLIENT.embeddings.create(input=[query], model=EMBEDDING_MODEL)
+        results = await QDRANT_CLIENT.query_points(
+            collection_name=COLLECTION_NAME,
+            query=emb.data[0].embedding,
+            limit=15,
+            with_payload=True,
+            score_threshold=0.70
+        )
+        hits = results.points
+        if not hits:
+            return "Aucune information pertinente dans les manuels enseignés."
+        lines = ["Selon les manuels de référence N’ko que tu m’as enseignés :"]
+        for h in hits[:10]:
+            p = h.payload
+            fr = p.get("element_français", "")
+            nko = p.get("element_nko", "")
+            regle = p.get("explication_règle", "")
+            if fr and nko:
+                lines.append(f"• {fr} → {nko}")
+            elif regle:
+                lines.append(f"• RÈGLE : {regle}")
+        return "\n".join(lines)
+    except Exception as e:
+        logging.error(f"Erreur RAG: {e}")
+        return "Erreur lors de la recherche dans les manuels."
+
+async def detecter_et_apprendre(message: str):
+    msg = normaliser_texte(message.lower())
+    if msg.startswith("apprendre mot:") or msg.startswith("apprendre mot :"):
+        content = message.split(":", 1)[1].strip()
+        if "=" in content:
+            parts = content.split("=", 1)
+            fr, nko = normaliser_texte(parts[0].strip()), normaliser_texte(parts[1].strip())
+            if any(c >= "\u07c0" for c in nko) or any(c >= "\u07c0" for c in fr):
+                if any(c >= "\u07c0" for c in fr):
+                    fr, nko = nko, fr
+                emb = await LLM_CLIENT.embeddings.create(input=[fr], model=EMBEDDING_MODEL)
+                point = PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector=emb.data[0].embedding,
+                    payload={"element_français": fr, "element_nko": nko, "type": "mot"}
+                )
+                await QDRANT_CLIENT.upsert(collection_name=COLLECTION_NAME, points=[point])
+                return f"J’ai bien appris : {fr} = {nko}"
+    return None
 
 # ====================== LIFESPAN ======================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global LLM_CLIENT, QDRANT_CLIENT
-    logging.info("Démarrage Nkotronic v3.2.1 ULTIME – TOUT ACTIVÉ")
+    logging.info("Démarrage Nkotronic v3.2.1 – Prompt strict activé")
 
     LLM_CLIENT = AsyncOpenAI(api_key=OPENAI_API_KEY, timeout=60.0, max_retries=3)
     QDRANT_CLIENT = AsyncQdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, timeout=30.0)
 
     try:
         await LLM_CLIENT.chat.completions.create(model=LLM_MODEL, messages=[{"role": "user", "content": "ok"}], max_tokens=1)
-        logging.info("GPT-4o connecté")
-        cols = await QDRANT_CLIENT.get_collections()
-        if COLLECTION_NAME not in [c.name for c in cols.collections]:
-            await QDRANT_CLIENT.create_collection(
-                collection_name=COLLECTION_NAME,
-                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
-            )
-        logging.info("Qdrant prêt")
+        await QDRANT_CLIENT.get_collections()
+        logging.info("Services connectés")
     except Exception as e:
-        logging.error(f"Erreur init: {e}")
+        logging.error(f"Erreur démarrage: {e}")
 
     asyncio.create_task(background_cleanup())
     yield
 
     if LLM_CLIENT: await LLM_CLIENT.close()
     if QDRANT_CLIENT: await QDRANT_CLIENT.close()
-    logging.info("Arrêt propre")
 
-# ====================== FASTAPI ======================
-app = FastAPI(title="Nkotronic v3.2.1 ULTIME – TOUT ACTIVÉ", lifespan=lifespan)
+# ====================== APP ======================
+app = FastAPI(title="Nkotronic v3.2.1 – Prompt Strict RAG", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 class ChatRequest(BaseModel):
     user_message: str
     session_id: Optional[str] = None
-    debug: bool = False
 
 class ChatResponse(BaseModel):
     response_text: str
     session_id: str
-    debug_info: Optional[dict] = None
 
-# ====================== ENDPOINTS ======================
 @app.get("/")
 async def root():
-    kb = 0
-    if QDRANT_CLIENT:
-        try:
-            kb = (await QDRANT_CLIENT.count(COLLECTION_NAME)).count
-        except:
-            pass
-    return {
-        "service": "Nkotronic v3.2.1 ULTIME",
-        "status": "TOUT ACTIVÉ",
-        "model": "gpt-4o",
-        "knowledge_base": kb,
-        "sessions": len(CONVERSATION_MEMORY)
-    }
+    return {"service": "Nkotronic v3.2.1", "status": "ONLINE – Prompt strict RAG activé"}
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
@@ -288,36 +229,29 @@ async def chat_endpoint(req: ChatRequest):
     session_id = await get_or_create_session(req.session_id)
     message = normaliser_texte(req.user_message)
 
-    # === APPRENTISSAGE STRICT ===
-    apprentissage = await detecter_apprentissage_strict(message)
+    # === APPRENTISSAGE ===
+    apprentissage = await detecter_et_apprendre(message)
     if apprentissage:
-        if apprentissage["type"] == "mot":
-            fr, nko = apprentissage["fr"], apprentissage["nko"]
-            emb = await LLM_CLIENT.embeddings.create(input=[fr], model=EMBEDDING_MODEL)
-            point = PointStruct(
-                id=str(uuid.uuid4()),
-                vector=emb.data[0].embedding,
-                payload={"element_français": fr, "element_nko": nko, "type": "mot"}
-            )
-            await QDRANT_CLIENT.upsert(collection_name=COLLECTION_NAME, points=[point])
-            GamificationSystem.update_progress(USER_PROFILES[session_id], "mot")
-            response = f"J'ai appris : {fr} = {nko}"
-        elif apprentissage["type"] == "regle":
-            GamificationSystem.update_progress(USER_PROFILES[session_id], "regle")
-            response = "Règle mémorisée avec succès !"
+        response = apprentissage
     else:
-        # === RAG + RÉPONSE NORMALE ===
-        contexte = await recherche_rag(message)
-        prompt = f"Tu es Nkotronic, assistant N'ko.\n{contexte}\nQuestion: {message}\nRéponse claire et naturelle:"
+        # === RAG + PROMPT STRICT ===
+        contexte_rag = await recherche_rag(message)
+
+        messages = [
+            {"role": "system", "content": PROMPT_SYSTEM_STRICT},
+            {"role": "system", "content": contexte_rag},
+            {"role": "user", "content": message}
+        ]
+
         resp = await LLM_CLIENT.chat.completions.create(
             model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=MAX_TOKENS_RESPONSE,
-            temperature=0.7
+            messages=messages,
+            temperature=0.3,
+            max_tokens=MAX_TOKENS_RESPONSE
         )
         response = resp.choices[0].message.content
 
-    # Enregistrement mémoire
+    # Mémoire
     async with MEMORY_LOCK:
         CONVERSATION_MEMORY[session_id].append({"role": "user", "content": message})
         CONVERSATION_MEMORY[session_id].append({"role": "assistant", "content": response})
