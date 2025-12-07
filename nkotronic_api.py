@@ -106,8 +106,14 @@ MAX_TOKENS_RESUME = 2000  # Pour résumés de compression
 COMPRESSION_THRESHOLD = 50  # Compresser si > 50 messages
 COMPRESSION_KEEP_RECENT = 30  # Garder les 30 plus récents non compressés
 
+# 🆕 v3.2.1: Configuration TTL et cleanup sessions
+SESSION_TTL_HOURS = 24  # Sessions expirent après 24h d'inactivité
+MAX_SESSIONS = 1000  # Maximum 1000 sessions en RAM
+CLEANUP_INTERVAL_MINUTES = 30  # Cleanup toutes les 30 minutes
+
 USER_PROFILES: Dict[str, dict] = {}
 SESSION_METADATA: Dict[str, dict] = {}
+SESSION_LAST_ACTIVITY: Dict[str, datetime] = {}  # 🆕 Track dernière activité
 
 # --- CONSTANTS ---
 COLLECTION_NAME = "nkotronic_knowledge_base"
@@ -758,12 +764,11 @@ Ces informations sont VRAIES et PRIORITAIRES. Ne jamais les contredire :
    - Google et les Occidentaux ont CONFONDU le N'ko avec le bambara
    - Ils ont attribué la grammaire du bambara au N'ko (ERREUR)
    - Le N'ko a sa PROPRE grammaire : ߒߞߏ ߞߊ߲ߜߍ
-   - La grammaire et le vocabulaire du N'ko sont différents de ceux du Bamanan/Bambara/djula/Dioula
 
 3️⃣ Solomana Kantè - Inventeur du N'ko
    - Nom EXACT : Fodé Solomana Kantè (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫)
    - Variantes ACCEPTÉES : Solomana Kanté, Solomana Kantè, Solomāna Kanté, Solomāna Kantè
-   - Toute autre orthographe = ERREUR (corriger poliment avec bienveillance et compassion)
+   - Toute autre orthographe = ERREUR (corriger poliment)
    - A écrit 183 livres en N'ko
    - Dont 11 livres sur la grammaire N'ko :
      * Les principaux corroboratifs en N'ko
@@ -782,9 +787,10 @@ Ces informations sont VRAIES et PRIORITAIRES. Ne jamais les contredire :
 5️⃣ Origine de l'écriture N'ko
    - Basée sur glyphes mandingues anciens (22000+ documentés)
    - Source : livre "Écritures africaines" de Nadine Martinez
-   - Chaque lettre N'ko = modernisation d'un glyphe ancien
-   - Inspiré par les anciennes écritures ouest-africaines telle l'écriture vaï (vaïnka)
+   - Chaque lettre N'ko = modernisation et philosophalisation d'un glyphe ancien
+   - Inspiré par les anciennes écritures africaines telle l'écriture vaï (vaïnka)
    - Solomana Kantè l'a expliqué dans "Mandén Kurufaba"
+   - Continuation de l'écriture créé par Ngolo Djara
 
 6️⃣ GRAMMAIRE N'KO - Règles fondamentales
    
@@ -828,7 +834,7 @@ Tu as DEUX sources de connaissances :
   📖 RÈGLE apprise: "߁ se prononce ߞߋߟߋ߲"
   Question: "compte en n'ko"
   → ✅ BON: "߁ (ߞߋߟߋ߲), ߂ (ߝߌ߬ߟߊ߬)..." (UTILISE ce que l'utilisateur t'a appris)
-  → ❌ FAUX: "߁ (kɔnɛ)" (si tu fais ça alors tu ignores l'enseignement de l'utilisateur, or ignorer l'enseignement de l'utilisateur est RADICALEMENT ET IRRÉVOCABLEMENT PROSCRIT)
+  → ❌ FAUX: "߁ (kɔnɛ)" (ignore l'enseignement de l'utilisateur)
 
   📚 VOCABULAIRE appris: "10 = ߁߀, 20 = ߂߀"
   Question: "compte jusqu'à 20"
@@ -841,9 +847,9 @@ Tu as DEUX sources de connaissances :
   ❌ JAMAIS dire "Je ne trouve pas dans le CONTEXTE RAG"
   
   ✅ Dire plutôt :
-     - "Selon l'état de mes connaissances actuelles..."
-     - "Les informations dans mes mises à jour..."
-     - "D'après les données auxquelles j'ai accès en ce moment..."
+     - "Selon les données que j'ai actuellement en ma possession..."
+     - "Ce que m'aprennent les informations de la documentation qui m'alimente..."
+     - "D'après les sources qui sont mises à ma disposition..."
      - Si info manquante : "Je ne sais pas encore" ou "Apprends-le moi"
 
 """
@@ -1052,8 +1058,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[dict]:
     else:
         logging.warning("⚠️ Qdrant non configuré")
 
-    logging.info("✅ Nkotronic v3.2.0 prêt avec Long Context Master!")
+    # 3️⃣ DÉMARRER TÂCHE CLEANUP AUTOMATIQUE (v3.2.1)
+    cleanup_task = asyncio.create_task(background_cleanup_task())
+    logging.info(f"🧹 Tâche cleanup démarrée (TTL: {SESSION_TTL_HOURS}h, interval: {CLEANUP_INTERVAL_MINUTES}min)")
+
+    logging.info("✅ Nkotronic v3.2.1-AsyncOpenAI-GPT4o prêt!")
     yield {}
+    
+    # Arrêter la tâche cleanup
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+    
     logging.info("🛑 Arrêt de Nkotronic")
 
 app = FastAPI(
@@ -1165,13 +1183,89 @@ class ConnaissanceEntry(BaseModel):
 def get_or_create_session(session_id: Optional[str] = None) -> str:
     """Récupère ou crée une session de conversation."""
     if session_id and session_id in CONVERSATION_MEMORY:
+        # 🆕 v3.2.1: Mettre à jour dernière activité
+        SESSION_LAST_ACTIVITY[session_id] = datetime.now()
         return session_id
     
     # Créer nouvelle session
     new_session_id = session_id or str(uuid.uuid4())
     CONVERSATION_MEMORY[new_session_id] = deque(maxlen=MAX_MEMORY_SIZE)
+    SESSION_LAST_ACTIVITY[new_session_id] = datetime.now()  # 🆕 v3.2.1
     logging.info(f"🆕 Nouvelle session créée: {new_session_id}")
+    
+    # 🆕 v3.2.1: Cleanup si trop de sessions
+    if len(CONVERSATION_MEMORY) > MAX_SESSIONS:
+        cleanup_old_sessions(force=True)
+    
     return new_session_id
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🆕 v3.2.1: GESTION TTL ET CLEANUP AUTOMATIQUE DES SESSIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def cleanup_old_sessions(force: bool = False) -> int:
+    """
+    Nettoie les sessions expirées.
+    
+    Args:
+        force: Si True, supprime aussi les sessions les plus anciennes si > MAX_SESSIONS
+    
+    Returns:
+        Nombre de sessions supprimées
+    """
+    now = datetime.now()
+    ttl_delta = timedelta(hours=SESSION_TTL_HOURS)
+    sessions_to_delete = []
+    
+    # 1. Trouver sessions expirées (TTL dépassé)
+    for session_id, last_activity in SESSION_LAST_ACTIVITY.items():
+        if now - last_activity > ttl_delta:
+            sessions_to_delete.append(session_id)
+    
+    # 2. Si force=True et encore trop de sessions, supprimer les plus anciennes
+    if force and len(CONVERSATION_MEMORY) > MAX_SESSIONS:
+        # Trier par dernière activité (les plus anciennes en premier)
+        sorted_sessions = sorted(
+            SESSION_LAST_ACTIVITY.items(),
+            key=lambda x: x[1]
+        )
+        # Calculer combien supprimer
+        to_remove = len(CONVERSATION_MEMORY) - MAX_SESSIONS + len(sessions_to_delete)
+        # Ajouter les plus anciennes à la liste
+        for session_id, _ in sorted_sessions[:to_remove]:
+            if session_id not in sessions_to_delete:
+                sessions_to_delete.append(session_id)
+    
+    # 3. Supprimer les sessions
+    for session_id in sessions_to_delete:
+        if session_id in CONVERSATION_MEMORY:
+            del CONVERSATION_MEMORY[session_id]
+        if session_id in USER_PROFILES:
+            del USER_PROFILES[session_id]
+        if session_id in SESSION_METADATA:
+            del SESSION_METADATA[session_id]
+        if session_id in SESSION_LAST_ACTIVITY:
+            del SESSION_LAST_ACTIVITY[session_id]
+    
+    if sessions_to_delete:
+        logging.info(f"🧹 Cleanup: {len(sessions_to_delete)} sessions supprimées")
+    
+    return len(sessions_to_delete)
+
+
+async def background_cleanup_task():
+    """Tâche background pour cleanup automatique des sessions."""
+    while True:
+        try:
+            await asyncio.sleep(CLEANUP_INTERVAL_MINUTES * 60)
+            cleanup_old_sessions(force=False)
+            
+            # Log stats
+            total_sessions = len(CONVERSATION_MEMORY)
+            logging.info(f"📊 Sessions actives: {total_sessions}/{MAX_SESSIONS}")
+        except Exception as e:
+            logging.error(f"❌ Erreur background cleanup: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1264,6 +1358,9 @@ def ajouter_message_memoire(session_id: str, role: str, content: str, metadata: 
     """Ajoute un message à l'historique de la session avec métadonnées optionnelles."""
     if session_id not in CONVERSATION_MEMORY:
         CONVERSATION_MEMORY[session_id] = deque(maxlen=MAX_MEMORY_SIZE)
+    
+    # 🆕 v3.2.1: Mettre à jour dernière activité
+    SESSION_LAST_ACTIVITY[session_id] = datetime.now()
     
     message = {
         'role': role,
@@ -3005,7 +3102,7 @@ async def health():
 
 @app.get('/stats')
 async def stats():
-    """Statistiques globales du système v3.2.0"""
+    """Statistiques globales du système v3.2.1"""
     if QDRANT_CLIENT is None:
         raise HTTPException(status_code=503, detail='Qdrant non disponible')
     
@@ -3020,6 +3117,18 @@ async def stats():
         total_users = len(USER_PROFILES)
         total_sessions = len(CONVERSATION_MEMORY)
         total_messages = sum(len(hist) for hist in CONVERSATION_MEMORY.values())
+        
+        # 🆕 v3.2.1: Stats TTL
+        now = datetime.now()
+        sessions_expiring_soon = sum(
+            1 for last_activity in SESSION_LAST_ACTIVITY.values()
+            if (now - last_activity).total_seconds() > (SESSION_TTL_HOURS - 1) * 3600
+        )
+        
+        oldest_session = None
+        if SESSION_LAST_ACTIVITY:
+            oldest = min(SESSION_LAST_ACTIVITY.values())
+            oldest_session = (now - oldest).total_seconds() / 3600  # En heures
         
         xp_total = sum(
             UserProgress(**p['progress']).points_xp 
@@ -3044,8 +3153,8 @@ async def stats():
         ) if USER_PROFILES else 0
         
         return {
-            'version': '3.2.0',
-            'nom': 'Nkotronic Long Context Master',
+            'version': '3.2.1-AsyncOpenAI-GPT4o',
+            'nom': 'Nkotronic AsyncOpenAI + GPT-4o',
             'total_points_qdrant': count.count,
             'total_utilisateurs': total_users,
             'total_sessions': total_sessions,
@@ -3056,13 +3165,25 @@ async def stats():
             'xp_total_cumule': xp_total,
             'xp_moyen_par_user': round(xp_moyen, 2),
             'timestamp': datetime.now().isoformat(),
-            'capacites_v320': {
+            'sessions_management': {  # 🆕 v3.2.1
+                'max_sessions': MAX_SESSIONS,
+                'sessions_actives': total_sessions,
+                'utilisation': f'{round(total_sessions/MAX_SESSIONS*100, 1)}%',
+                'ttl_heures': SESSION_TTL_HOURS,
+                'cleanup_interval_min': CLEANUP_INTERVAL_MINUTES,
+                'sessions_expiring_soon': sessions_expiring_soon,
+                'oldest_session_hours': round(oldest_session, 1) if oldest_session else None
+            },
+            'capacites_v321': {
                 'max_chars_embedding': MAX_CHARS_EMBEDDING,
                 'max_tokens_response': MAX_TOKENS_RESPONSE,
                 'chunking': 'Activé',
                 'compression_auto': f'Seuil: {COMPRESSION_THRESHOLD} messages',
                 'modele': LLM_MODEL,
-                'contexte_llm': '128k tokens'
+                'contexte_llm': '128k tokens',
+                'client': 'AsyncOpenAI',
+                'normalisation_nfc': 'Activé',
+                'retry_auto': '3x'
             },
             'sample_data': [p.payload for p in sample[0][:3]]
         }
