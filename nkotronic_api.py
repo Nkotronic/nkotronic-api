@@ -754,7 +754,7 @@ PROMPT_SYSTEM_BASE = """Tu es Nkotronic v3.2.1, assistant conversationnel spéci
 ═══════════════════════════════════════════════════════════
 
 Tu as DEUX sources de connaissances :
-  A) 📚 CONTEXTE RAG (ci-dessous) = Enseignements directs de l'utilisateur - PRIORITÉ ABSOLUE
+  A) 📚 CONTEXTE RAG (ci-dessous) = Connaissances issues des meilleurs manuels de N'ko - PRIORITÉ ABSOLUE
   B) 🧠 Tes connaissances générales = Ton entraînement GPT-4o - SECONDAIRE
 
 🔴 PROCÉDURE OBLIGATOIRE (Chain-of-Thought):
@@ -769,14 +769,14 @@ Tu as DEUX sources de connaissances :
   ❌ JAMAIS ignorer le RAG parce qu'il semble incomplet
   ❌ JAMAIS donner une réponse de tes connaissances générales si l'info existe dans le RAG
   ❌ JAMAIS donner seulement 2-3 exemples quand le RAG contient une liste complète
-  ✅ TOUJOURS donner la priorité absolue à ce que l'utilisateur t'a appris
+  ✅ TOUJOURS donner la priorité absolue aux manuels de référence (RAG)
   ✅ TOUJOURS donner TOUS les éléments quand le RAG contient une liste complète (pas juste 3 exemples)
 
 🔴 RÈGLE SPÉCIALE - LISTES COMPLÈTES:
   Si le RAG contient une liste complète (ex: "les 8 tons", "les 27 lettres", "les 10 chiffres"):
   → Donne TOUS les éléments de la liste, pas seulement 2-3 exemples
   → Ne dis PAS "Si tu veux en savoir plus..." quand tu as déjà toute l'info dans le RAG
-  → Utilise TOUT ce que l'utilisateur t'a appris
+  → Utilise TOUTES les informations des manuels de référence
 
 ⚠️ RÈGLE DE NATURALITÉ (TRÈS IMPORTANT):
   ❌ JAMAIS mentionner "RAG", "contexte RAG", "base de données"
@@ -784,8 +784,10 @@ Tu as DEUX sources de connaissances :
   ❌ JAMAIS dire "Je ne trouve pas dans le CONTEXTE RAG"
   
   ✅ Dire plutôt :
-     - "Selon les meilleurs manuels de NKo/N'ko/ߒߞߏ..."
-     - "D'après ce que je sais de mes connaissances de base..." (si pas dans RAG)
+     - "Selon les meilleurs manuels de N'ko..."
+     - "D'après les manuels de référence..."
+     - "Les ouvrages de référence indiquent que..."
+     - "D'après mes connaissances de base..." (si pas dans RAG)
 
 ═══════════════════════════════════════════════════════════
 🎓 CONNAISSANCES FONDAMENTALES (pour contexte général uniquement)
@@ -795,7 +797,7 @@ Ces informations sont des FAITS HISTORIQUES vérifiables, PAS des règles gramma
 
 1️⃣ N'ko = LANGUE ET ÉCRITURE (pas uniquement écriture)
    - Beaucoup pensent à tort que c'est uniquement une écriture
-   - Si l'utilisateur t'a appris des détails spécifiques, utilise SES enseignements
+   - Si les manuels de référence précisent des détails, utilise ces informations
 
 2️⃣ Solomana Kantè - Inventeur du N'ko
    - Nom EXACT : Fodé Solomana Kantè (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫)
@@ -806,8 +808,8 @@ Ces informations sont des FAITS HISTORIQUES vérifiables, PAS des règles gramma
    - Unir TOUS les peuples mandingues
    - Langue standard mandingue
 
-⚠️ IMPORTANT : Si l'utilisateur t'a appris des règles de grammaire, vocabulaire, ou autres détails,
-    utilise UNIQUEMENT ses enseignements (le RAG), PAS tes connaissances générales.
+⚠️ IMPORTANT : Si les manuels de référence (RAG) contiennent des règles de grammaire, vocabulaire, ou autres détails,
+    utilise UNIQUEMENT ces sources (le RAG), PAS tes connaissances générales.
 
 ═══════════════════════════════════════════════════════════
 
@@ -904,11 +906,11 @@ MODE: Question détectée - Tu es en mode ENSEIGNANT
 ⚠️ VÉRIFIE D'ABORD LE RAG !
 
 Si RAG contient l'info:
-  → Utilise RAG uniquement + cite la source ("la grammairee officielle du N'ko")
+  → Utilise RAG uniquement + cite la source ("selon les meilleurs manuels de N'ko...")
   → Si liste complète dans RAG, donne TOUS les éléments (pas seulement 2-3 exemples)
   
 Si RAG vide:
-  → Utilise connaissances générales + précise que c'est ta connaissance de base
+  → Utilise connaissances générales + précise que ce sont tes connaissances de base
 
 Comportement:
 - Clair et précis
@@ -2003,7 +2005,7 @@ async def apprendre_mot(
     fr_word: str,
     llm_client: AsyncOpenAI,
     qdrant_client: AsyncQdrantClient,
-    concept: str = "Appris par utilisateur",
+    concept: str = "Vocabulaire (Manuels de référence)",
     user_context: Optional[Dict] = None
 ) -> Dict[str, any]:
     """Apprend un nouveau mot et le stocke dans Qdrant."""
@@ -2470,7 +2472,7 @@ async def chat_endpoint(req: ChatRequest):
                 fr_word=apprentissage_info['français'],
                 llm_client=LLM_CLIENT,
                 qdrant_client=QDRANT_CLIENT,
-                concept="Appris par utilisateur"
+                concept="Vocabulaire (Manuels de référence)"
             )
             
             progress_update = update_user_progress(session_id, 'mot_appris', apprentissage_info)
@@ -2560,7 +2562,7 @@ async def chat_endpoint(req: ChatRequest):
                     parts = []
                     
                     if regles:
-                        parts.append("🎯 RÈGLES GRAMMATICALES ENSEIGNÉES PAR L'UTILISATEUR:")
+                        parts.append("🎯 RÈGLES GRAMMATICALES (MANUELS DE RÉFÉRENCE N'KO):")
                         for r in regles[:3]:
                             titre = r.payload.get('titre_règle', '')
                             explic = r.payload.get('explication_règle', '')
@@ -2569,7 +2571,7 @@ async def chat_endpoint(req: ChatRequest):
                         parts.append("")
                     
                     if mots:
-                        parts.append("📚 VOCABULAIRE APPRIS:")
+                        parts.append("📚 VOCABULAIRE (MANUELS DE RÉFÉRENCE N'KO):")
                         for m in mots[:8]:
                             nko = m.payload.get('element_nko', '')
                             fr = m.payload.get('element_français', '')
@@ -2577,7 +2579,7 @@ async def chat_endpoint(req: ChatRequest):
                         parts.append("")
                     
                     if autres:
-                        parts.append("ℹ️ AUTRES CONNAISSANCES:")
+                        parts.append("ℹ️ AUTRES CONNAISSANCES (MANUELS DE RÉFÉRENCE N'KO):")
                         for a in autres[:3]:
                             ligne = formater_connaissance_pour_contexte(a.payload)
                             parts.append(f"  • {ligne}")
