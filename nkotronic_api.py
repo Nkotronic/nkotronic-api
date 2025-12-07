@@ -34,6 +34,7 @@ import logging
 import json
 import uuid
 import random
+import unicodedata  # 🆕 v3.2.1: Pour normalisation NFC
 from contextlib import asynccontextmanager
 from typing import Optional, AsyncIterator, List, Dict, Tuple
 from pathlib import Path
@@ -45,7 +46,7 @@ from enum import Enum
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import VectorParams, PointStruct, Distance, models
@@ -88,7 +89,7 @@ else:
     logging.info(f"✅ QDRANT_API_KEY chargée")
 
 # --- GLOBAL CLIENTS ---
-LLM_CLIENT: Optional[OpenAI] = None
+LLM_CLIENT: Optional[AsyncOpenAI] = None
 QDRANT_CLIENT: Optional[AsyncQdrantClient] = None
 
 # 🆕 v3.0: CONFIGURATION MÉMOIRE AVANCÉE
@@ -126,6 +127,32 @@ NKO_PHONETIC_MAP = {
     'ߥ': 'w', 'ߦ': 'y', 'ߧ': 'ɲ', 'ߨ': 'd͡ʒ', 'ߒ': "ŋ",
     '߫': '', '߬': '', '߭': '', '߮': '', '߯': '', '߰': '', '߱': '', '߲': 'n',
 }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🆕 v3.2.1: NORMALISATION UNICODE NFC (Fix corruption N'ko)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def normaliser_texte(text: str) -> str:
+    """
+    Normalise le texte en NFC (Canonical Composition).
+    
+    Critique pour les caractères N'ko qui peuvent être en NFD (décomposés).
+    OpenAI préfère NFC (composés) pour éviter les erreurs 400 '$.input is invalid'.
+    
+    Args:
+        text: Texte à normaliser (peut contenir du N'ko)
+    
+    Returns:
+        Texte normalisé en NFC
+        
+    Exemples:
+        >>> normaliser_texte("߁")  # N'ko chiffre 1
+        '߁'  # Normalisé NFC
+    """
+    if not text:
+        return text
+    return unicodedata.normalize('NFC', text)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -547,7 +574,7 @@ class MemoryCompressionSystem:
     @staticmethod
     async def compresser_memoire_ancienne(
         session_id: str,
-        llm_client: OpenAI,
+        llm_client: AsyncOpenAI,
         threshold: int = COMPRESSION_THRESHOLD,
         keep_recent: int = COMPRESSION_KEEP_RECENT
     ) -> bool:
@@ -605,8 +632,7 @@ CONVERSATION ({nb_anciens} messages):
 RÉSUMÉ:"""
         
         try:
-            response = await asyncio.to_thread(
-                llm_client.chat.completions.create,
+            response = await llm_client.chat.completions.create(
                 model=LLM_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
@@ -729,13 +755,14 @@ Ces informations sont VRAIES et PRIORITAIRES. Ne jamais les contredire :
 
 2️⃣ N'ko ≠ Bambara (erreur très courante)
    - Google et les Occidentaux ont CONFONDU le N'ko avec le bambara
-   - La grammaire et le vocabulaire du N'ko N'EST PAS LE MÊME que la grammaire et le vocabulaire Bambara/Bamanan
+   - Ils ont attribué la grammaire du bambara au N'ko (ERREUR)
    - Le N'ko a sa PROPRE grammaire : ߒߞߏ ߞߊ߲ߜߍ
+   - La grammaire et le vocabulaire du N'ko sont TOTALEMENT différents de la grammaire et du vocabulaire du bamanan/bambara
 
 3️⃣ Solomana Kantè - Inventeur du N'ko
    - Nom EXACT : Fodé Solomana Kantè (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫)
    - Variantes ACCEPTÉES : Solomana Kanté, Solomana Kantè, Solomāna Kanté, Solomāna Kantè
-   - Toute autre orthographe = ERREUR (corriger poliment)
+   - Toute autre orthographe = ERREUR (corriger poliment avec bienveillance)
    - A écrit 183 livres en N'ko
    - Dont 11 livres sur la grammaire N'ko :
      * Les principaux corroboratifs en N'ko
@@ -754,9 +781,10 @@ Ces informations sont VRAIES et PRIORITAIRES. Ne jamais les contredire :
 5️⃣ Origine de l'écriture N'ko
    - Basée sur glyphes mandingues anciens (22000+ documentés)
    - Source : livre "Écritures africaines" de Nadine Martinez
-   - Chaque lettre N'ko = modernisation et philosophalisation d'un glyphe ancien
-   - Inspiré par des écritures ouest-africaines telle que l'écriture vaï (vaïnka)
+   - Chaque lettre N'ko = modernisation d'un glyphe ancien
+   - Inspiré par l'écriture vaï (vaïnka)
    - Solomana Kantè l'a expliqué dans "Mandén Kurufaba"
+   - C'est la continuation de l'oeuvre mythique de création d'écriture du fameux Ngolo Djara
 
 6️⃣ GRAMMAIRE N'KO - Règles fondamentales
    
@@ -773,7 +801,7 @@ Ces informations sont VRAIES et PRIORITAIRES. Ne jamais les contredire :
    - feu = ߕߊ
    - Ne JAMAIS confondre soleil et feu
 
-⚠️ Si quelqu'un contredit ces faits, corrige poliment avec bienveillance et des sources.
+⚠️ Si quelqu'un contredit ces faits, corrige poliment avec sources.
 
 ═══════════════════════════════════════════════════════════
 ⚠️ RÈGLE ABSOLUE - HIÉRARCHIE DES SOURCES (NON NÉGOCIABLE)
@@ -786,22 +814,21 @@ Tu as DEUX sources de connaissances :
 🔴 PROCÉDURE OBLIGATOIRE (Chain-of-Thought):
   1. ✅ LIS D'ABORD le CONTEXTE RAG en ENTIER
   2. ✅ CHERCHE si l'info existe dans le RAG
-  3. ✅ SI OUI : Utilise UNIQUEMENT le RAG (IGNORE tes connaissances générales)
+  3. ✅ SI OUI : Utilise UNIQUEMENT le RAG (IGNORE radicalement tes connaissances générales)
   4. ✅ SI NON : Utilise tes connaissances générales
 
 🔴 RÈGLES STRICTES:
-  ❌ JAMAIS mélanger RAG et connaissances générales
-  ❌ JAMAIS contredire le RAG même si tu "penses mieux savoir"
-  ❌ JAMAIS ignorer le RAG parce qu'il semble incomplet
-  ❌ JAMAIS donner une réponse de tes connaissances générales si l'info existe dans le RAG
-  ❌ JAMAIS utiliser le bambara/bamanan à la place du N'ko
+  ❌ NE JAMAIS mélanger RAG et connaissances générales
+  ❌ NE JAMAIS contredire le RAG même si tu "penses mieux savoir"
+  ❌ NE JAMAIS ignorer le RAG parce qu'il semble incomplet
+  ❌ NE JAMAIS donner une réponse de tes connaissances générales si l'info existe dans le RAG
 
 ✅ EXEMPLES CONCRETS:
 
   📖 RÈGLE apprise: "߁ se prononce ߞߋߟߋ߲"
   Question: "compte en n'ko"
   → ✅ BON: "߁ (ߞߋߟߋ߲), ߂ (ߝߌ߬ߟߊ߬)..." (UTILISE ce que l'utilisateur t'a appris)
-  → ❌ FAUX: "߁ (kɔnɛ)" (ignore l'enseignement de l'utilisateur)
+  → ❌ FAUX: "߁ (kɔnɛ)" (si tu fais ça alors tu ignores l'enseignement de l'utilisateur, or ignorer l'enseignement de l'utilisateur est RADICALEMENT ET IRRÉVOCABLEMENT PROSCRIT)
 
   📚 VOCABULAIRE appris: "10 = ߁߀, 20 = ߂߀"
   Question: "compte jusqu'à 20"
@@ -814,9 +841,9 @@ Tu as DEUX sources de connaissances :
   ❌ JAMAIS dire "Je ne trouve pas dans le CONTEXTE RAG"
   
   ✅ Dire plutôt :
-     - "Selon ce que tu m'as appris..."
-     - "Tu m'as enseigné que..."
-     - "D'après ce que je sais grâce à toi..."
+     - "Selon l'état actuel de mes connaissances..."
+     - "Selon les données en ma possession, qui sont régulièrement mises à jour, ..."
+     - "D'après les sources qui ont été mises à ma disposition..."
      - Si info manquante : "Je ne sais pas encore" ou "Apprends-le moi"
 
 """
@@ -860,7 +887,7 @@ Badges: {badges_actuels}
 - Varie le rythme selon complexité
 
 🌍 CONSCIENCE CULTURELLE:
-- Adapte vocabulaire au contexte mandingue
+- Adapte vocabulaire aux contextes mandingues ET africains
 - Utilise proverbes N'ko quand approprié
 - Explique nuances culturelles
 
@@ -910,7 +937,7 @@ MODE_INSTRUCTIONS = {
 MODE: Conversation naturelle
 
 Comportement:
-- Ton décontracté, empathique
+- Ton décontracté, empathique et intellectuel comme le professeur Charles Xavier dans les X-men
 - Pas de posture professorale
 - N'utilise N'ko que si pertinent au contexte
 - Pas de félicitations gratuites
@@ -972,19 +999,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[dict]:
     global LLM_CLIENT, QDRANT_CLIENT
     logging.info("🚀 Démarrage de Nkotronic v3.2.0 (Long Context Master)...")
 
-    # 1️⃣ INIT OpenAI
+    # 1️⃣ INIT AsyncOpenAI (v3.2.1 - Fix corruption N'ko)
     try:
         if not OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY manquante!")
         
-        LLM_CLIENT = OpenAI(api_key=OPENAI_API_KEY, timeout=30.0)
-        test_response = await asyncio.to_thread(
-            LLM_CLIENT.chat.completions.create,
+        LLM_CLIENT = AsyncOpenAI(
+            api_key=OPENAI_API_KEY, 
+            timeout=60.0,  # Augmenté de 30s à 60s
+            max_retries=3  # Retry automatique
+        )
+        # Test de connexion (direct async, plus de to_thread)
+        test_response = await LLM_CLIENT.chat.completions.create(
             model=LLM_MODEL,
             messages=[{"role": "user", "content": "test"}],
             max_tokens=5
         )
-        logging.info("✅ Client OpenAI initialisé et testé")
+        logging.info("✅ Client AsyncOpenAI initialisé et testé (v3.2.1)")
     except Exception as e:
         logging.error(f"❌ Erreur OpenAI: {e}")
         LLM_CLIENT = None
@@ -1272,7 +1303,7 @@ def formater_historique_conversation(session_id: str, limite: int = 20) -> str:
     return "\n".join(lignes)
 
 
-async def analyser_intention_memoire(user_message: str, session_id: str, llm_client: OpenAI) -> Optional[Dict]:
+async def analyser_intention_memoire(user_message: str, session_id: str, llm_client: AsyncOpenAI) -> Optional[Dict]:
     """Détecte si le message demande une analyse de l'historique."""
     import re
     
@@ -1312,7 +1343,7 @@ async def analyser_intention_memoire(user_message: str, session_id: str, llm_cli
     return None
 
 
-async def executer_action_memoire(intention: Dict, session_id: str, llm_client: OpenAI) -> str:
+async def executer_action_memoire(intention: Dict, session_id: str, llm_client: AsyncOpenAI) -> str:
     """Exécute une action basée sur la mémoire conversationnelle."""
     if session_id not in CONVERSATION_MEMORY:
         return "Nous n'avons pas encore d'historique de conversation."
@@ -1345,8 +1376,7 @@ Fais un résumé qui inclut:
 Sois concis mais précis."""
 
         try:
-            response = await asyncio.to_thread(
-                llm_client.chat.completions.create,
+            response = await llm_client.chat.completions.create(
                 model=LLM_MODEL,
                 messages=[{"role": "user", "content": prompt_resume}],
                 temperature=0.3,
@@ -1399,7 +1429,7 @@ Sois concis mais précis."""
 
 
 # --- FONCTION D'EXTRACTION MOT-CLÉ ---
-async def extraire_mot_cle(user_message: str, llm_client: OpenAI) -> str:
+async def extraire_mot_cle(user_message: str, llm_client: AsyncOpenAI) -> str:
     """Extrait le mot français à traduire de manière robuste."""
     import re
     
@@ -1437,8 +1467,7 @@ Question: {user_message}
 Mot:"""
 
     try:
-        resp = await asyncio.to_thread(
-            llm_client.chat.completions.create,
+        resp = await llm_client.chat.completions.create(
             model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
@@ -1457,11 +1486,10 @@ Mot:"""
 
 
 # 🆕 PHASE 6: RECHERCHE INTELLIGENTE AVEC FILTRAGE
-async def recherche_intelligente_filtree(mot_cle: str, llm_client: OpenAI, qdrant_client: AsyncQdrantClient):
+async def recherche_intelligente_filtree(mot_cle: str, llm_client: AsyncOpenAI, qdrant_client: AsyncQdrantClient):
     """Recherche vectorielle optimisée."""
     try:
-        emb_resp = await asyncio.to_thread(
-            llm_client.embeddings.create,
+        emb_resp = await llm_client.embeddings.create(
             input=[mot_cle],
             model=EMBEDDING_MODEL
         )
@@ -1496,7 +1524,7 @@ async def recherche_intelligente_filtree(mot_cle: str, llm_client: OpenAI, qdran
 
 
 # --- PRÉ-TRAITEMENT INTELLIGENT ---
-async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_client: AsyncQdrantClient):
+async def pretraiter_question(user_message: str, llm_client: AsyncOpenAI, qdrant_client: AsyncQdrantClient):
     """Détecte les mots N'ko et les traduit pour enrichir la recherche."""
     import re
     import unicodedata
@@ -1523,8 +1551,7 @@ async def pretraiter_question(user_message: str, llm_client: OpenAI, qdrant_clie
         try:
             nko_word_norm = normaliser_nko(nko_word)
             
-            emb_resp = await asyncio.to_thread(
-                llm_client.embeddings.create,
+            emb_resp = await llm_client.embeddings.create(
                 input=[nko_word_norm],
                 model=EMBEDDING_MODEL
             )
@@ -1929,7 +1956,7 @@ def detecter_apprentissage(message: str) -> Optional[Dict[str, str]]:
 async def apprendre_mot(
     nko_word: str,
     fr_word: str,
-    llm_client: OpenAI,
+    llm_client: AsyncOpenAI,
     qdrant_client: AsyncQdrantClient,
     concept: str = "Appris par utilisateur",
     user_context: Optional[Dict] = None
@@ -1949,9 +1976,9 @@ async def apprendre_mot(
         logging.info(f"📚 Apprentissage: {nko_word_clean} = {fr_word_clean}")
         
         # Vérifier si le mot existe déjà
-        emb_resp = await asyncio.to_thread(
-            llm_client.embeddings.create,
-            input=[fr_word_clean],
+        # 🆕 v3.2.1: Normalisation NFC avant envoi à OpenAI
+        emb_resp = await llm_client.embeddings.create(
+            input=[normaliser_texte(fr_word_clean)],
             model=EMBEDDING_MODEL
         )
         vector = emb_resp.data[0].embedding
@@ -2020,7 +2047,7 @@ async def apprendre_mot(
 # --- PHASE 5.1: APPRENTISSAGE MULTI-TYPES ---
 async def apprendre_connaissance(
     connaissance_data: Dict,
-    llm_client: OpenAI,
+    llm_client: AsyncOpenAI,
     qdrant_client: AsyncQdrantClient
 ) -> Dict[str, any]:
     """Apprend n'importe quel type de connaissance (règles, faits, listes, etc.)."""
@@ -2068,8 +2095,7 @@ async def apprendre_connaissance(
                 resultats_chunks = []
                 for i, chunk in enumerate(chunks):
                     # Créer embedding du chunk
-                    emb_resp_chunk = await asyncio.to_thread(
-                        llm_client.embeddings.create,
+                    emb_resp_chunk = await llm_client.embeddings.create(
                         input=[chunk],
                         model=EMBEDDING_MODEL
                     )
@@ -2118,8 +2144,7 @@ async def apprendre_connaissance(
                 texte_embedding = texte_embedding[:MAX_CHARS_EMBEDDING] + "..."
         
         # Créer embedding
-        emb_resp = await asyncio.to_thread(
-            llm_client.embeddings.create,
+        emb_resp = await llm_client.embeddings.create(
             input=[texte_embedding],
             model=EMBEDDING_MODEL
         )
@@ -2579,8 +2604,7 @@ async def chat_endpoint(req: ChatRequest):
             'élève': 0.5
         }
         
-        llm_resp = await asyncio.to_thread(
-            LLM_CLIENT.chat.completions.create,
+        llm_resp = await LLM_CLIENT.chat.completions.create(
             model=LLM_MODEL,  # v3.2.0: gpt-4-turbo
             messages=[
                 {"role": "system", "content": system_message},
@@ -2659,8 +2683,7 @@ async def add_translation(entries: List[TranslationEntry]):
         num_elements = len(french_elements)
 
         logging.info(f"🔄 Génération de {num_elements} embeddings...")
-        emb_resp = await asyncio.to_thread(
-            LLM_CLIENT.embeddings.create,
+        emb_resp = await LLM_CLIENT.embeddings.create(
             input=french_elements,
             model=EMBEDDING_MODEL
         )
@@ -3054,8 +3077,7 @@ async def search_direct(word: str):
         raise HTTPException(status_code=503, detail='Services non disponibles')
     
     try:
-        emb_resp = await asyncio.to_thread(
-            LLM_CLIENT.embeddings.create,
+        emb_resp = await LLM_CLIENT.embeddings.create(
             input=[word],
             model=EMBEDDING_MODEL
         )
