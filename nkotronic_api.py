@@ -787,10 +787,9 @@ Ces informations sont VRAIES et PRIORITAIRES. Ne jamais les contredire :
 5️⃣ Origine de l'écriture N'ko
    - Basée sur glyphes mandingues anciens (22000+ documentés)
    - Source : livre "Écritures africaines" de Nadine Martinez
-   - Chaque lettre N'ko = modernisation et philosophalisation d'un glyphe ancien
-   - Inspiré par les anciennes écritures africaines telle l'écriture vaï (vaïnka)
+   - Chaque lettre N'ko = modernisation d'un glyphe ancien
+   - Inspiré par l'écriture vaï (vaïnka)
    - Solomana Kantè l'a expliqué dans "Mandén Kurufaba"
-   - Continuation de l'écriture créé par Ngolo Djara
 
 6️⃣ GRAMMAIRE N'KO - Règles fondamentales
    
@@ -847,9 +846,9 @@ Tu as DEUX sources de connaissances :
   ❌ JAMAIS dire "Je ne trouve pas dans le CONTEXTE RAG"
   
   ✅ Dire plutôt :
-     - "Selon les données que j'ai actuellement en ma possession..."
-     - "Ce que m'aprennent les informations de la documentation qui m'alimente..."
-     - "D'après les sources qui sont mises à ma disposition..."
+     - "Selon ce que tu m'as appris..."
+     - "Tu m'as enseigné que..."
+     - "D'après ce que je sais grâce à toi..."
      - Si info manquante : "Je ne sais pas encore" ou "Apprends-le moi"
 
 """
@@ -1836,7 +1835,38 @@ def detecter_apprentissage_strict(message: str) -> Optional[Dict]:
         contenu = re.sub(r'^apprendre r[èe]gle\s*:\s*', '', message_clean, flags=re.IGNORECASE)
         if not contenu.strip():
             return {'type': 'erreur', 'message': '❌ Règle vide'}
-        titre = contenu[:60] + ("..." if len(contenu) > 60 else "")
+        
+        # 🆕 v3.2.1: Extraire mots-clés pour améliorer recherche RAG
+        # Mots-clés importants en français et N'ko
+        keywords_patterns = [
+            r'(ton|tons|accent|accents|diacritique|diacritiques)',
+            r'(pluriel|singulier|mutation|nasalisation)',
+            r'(voyelle|consonne|lettre|alphabet)',
+            r'(ߞߊ߲ߡߊߛߙߋ|ߞߊ߲ߠߊߘߌߦߊߟߊ߲|ߘߐ߬ߦߟߍ߬ߡߊ߲)',  # N'ko keywords
+            r'(\d+\s*(?:ton|accent|diacritique|voyelle|consonne))',  # "8 tons", "3 voyelles"
+        ]
+        
+        keywords = []
+        contenu_lower = contenu.lower()
+        for pattern in keywords_patterns:
+            matches = re.findall(pattern, contenu_lower, flags=re.IGNORECASE)
+            keywords.extend(matches)
+        
+        # Créer titre enrichi avec mots-clés
+        if keywords:
+            # Dédupliquer et prendre les 3 premiers
+            unique_keywords = []
+            for kw in keywords:
+                if kw not in unique_keywords:
+                    unique_keywords.append(kw)
+            keywords_str = ' '.join(unique_keywords[:3])
+            titre = f"{keywords_str} - {contenu[:40]}"
+            if len(titre) > 80:
+                titre = titre[:77] + "..."
+        else:
+            # Fallback: premiers 60 caractères
+            titre = contenu[:60] + ("..." if len(contenu) > 60 else "")
+        
         return {'type': 'règle', 'titre_règle': titre, 'explication_règle': contenu, 'concept_identifie': 'Grammaire'}
     
     # 3️⃣ APPRENDRE FAIT SUR
