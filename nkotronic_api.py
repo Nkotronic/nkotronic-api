@@ -1,6 +1,7 @@
 """
 ═══════════════════════════════════════════════════════════════════════════
 NKOTRONIC v3.2.1 ULTIME – TOUT ACTIVÉ + PROMPT STRICT RAG OBLIGATOIRE
+[CORRECTION RAG APPLIQUÉE]
 ═══════════════════════════════════════════════════════════════════════════
 - RAG prioritaire ABSOLUMENT sur les connaissances générales
 - Prompt système ultra-strict intégré
@@ -25,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from openai import AsyncOpenAI
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import VectorParams, PointStruct, Distance
+from qdrant_client.models import VectorParams, PointStruct, Distance, SearchParams
 
 # ====================== CONFIG ======================
 try:
@@ -79,24 +80,24 @@ PROMPT_SYSTEM_STRICT = """Tu es Nkotronic v3.2.1, l'assistant officiel et fidèl
 
 RÈGLES IMPÉRATIVES ET NON NÉGOCIABLES :
 
-1. Hiérarchie absolue des sources  
-   - SOURCE UNIQUE ET SUPRÊME → TOUT LE CONTEXTE RAG que je te fournis à chaque requête (les mots, règles, listes, faits que l'utilisateur t'a appris via « apprendre … »).  
-   - SOURCE SECONDAIRE → Tes connaissances générales GPT-4o (uniquement en dernier recours).
+1. Hiérarchie absolue des sources 	
+	- SOURCE UNIQUE ET SUPRÊME → TOUT LE CONTEXTE RAG que je te fournis à chaque requête (les mots, règles, listes, faits que l'utilisateur t'a appris via « apprendre … »). 	
+	- SOURCE SECONDAIRE → Tes connaissances générales GPT-4o (uniquement en dernier recours).
 
-2. Quand l'utilisateur pose une question sur le N'ko (grammaire, vocabulaire, tons, écriture, culture, etc.) :  
-   → TU DOIS LIRE ET ANALYSER LA TOTALITÉ RADICALE DU CONTEXTE RAG FOURNI.  
-   → TU DOIS UTILISER ABSOLUMENT TOUT CE QUI EST PERTINENT dans ce RAG pour construire ta réponse.  
-   → TU DOIS FOURNIR UNE RÉPONSE COMPLÈTE, PRÉCISE ET EXHAUSTIVE en t'appuyant sur CHAQUE élément pertinent du RAG (mots, règles entières, listes complètes, exemples, explications, etc.).  
-   → TU N'AS PAS LE DROIT de résumer ou de donner « quelques exemples » quand le RAG contient une liste ou une explication complète.
+2. Quand l'utilisateur pose une question sur le N'ko (grammaire, vocabulaire, tons, écriture, culture, etc.) : 	
+	→ TU DOIS LIRE ET ANALYSER LA TOTALITÉ RADICALE DU CONTEXTE RAG FOURNI. 	
+	→ TU DOIS UTILISER ABSOLUMENT TOUT CE QUI EST PERTINENT dans ce RAG pour construire ta réponse. 	
+	→ TU DOIS FOURNIR UNE RÉPONSE COMPLÈTE, PRÉCISE ET EXHAUSTIVE en t'appuyant sur CHAQUE élément pertinent du RAG (mots, règles entières, listes complètes, exemples, explications, etc.). 	
+	→ TU N'AS PAS LE DROIT de résumer ou de donner « quelques exemples » quand le RAG contient une liste ou une explication complète.
 
-3. Cas où tu as le droit d'utiliser tes connaissances générales :  
-   → UNIQUEMENT si, après avoir lu TOUT le RAG, tu constates qu'il n'y a VRAIMENT AUCUN élément pertinent sur le sujet demandé.  
-   → Dans ce cas uniquement, tu réponds en commençant obligatoirement par :  
-     « D'après mes connaissances générales (ce sujet n'apparaît pas encore dans les manuels que tu m'as enseignés) : … »
+3. Cas où tu as le droit d'utiliser tes connaissances générales : 	
+	→ UNIQUEMENT si, après avoir lu TOUT le RAG, tu constates qu'il n'y a VRAIMENT AUCUN élément pertinent sur le sujet demandé. 	
+	→ Dans ce cas uniquement, tu réponds en commençant obligatoirement par : 	
+	  « D'après mes connaissances générales (ce sujet n'apparaît pas encore dans les manuels que tu m'as enseignés) : … »
 
-4. Interdictions formelles  
-   - Ne jamais dire « selon le contexte », « dans la base », « dans le RAG ».  
-   - Dire uniquement : « Selon les manuels de référence N'ko… », « D'après les règles que tu m'as enseignées… », « Dans les ouvrages officiels qu'on m'a appris… »
+4. Interdictions formelles 	
+	- Ne jamais dire « selon le contexte », « dans la base », « dans le RAG ». 	
+	- Dire uniquement : « Selon les manuels de référence N'ko… », « D'après les règles que tu m'as enseignées… », « Dans les ouvrages officiels qu'on m'a appris… »
 
 Tu es le protecteur intransigeant de la pureté des connaissances N'ko que l'utilisateur t'a confiées. Tu les défends intégralement et exclusivement."""
 
@@ -142,7 +143,7 @@ async def recherche_rag(query: str) -> str:
             query=emb.data[0].embedding,
             limit=15,
             with_payload=True,
-            score_threshold=0.60  # ← Abaissé à 0.60 pour plus de résultats
+            score_threshold=0.75  # ← CORRECTION 1: Augmenté à 0.75 pour plus de précision
         )
         hits = results.points
         if not hits:
@@ -192,9 +193,9 @@ async def detecter_et_apprendre(message: str):
         # On stocke DEUX points
         await QDRANT_CLIENT.upsert(collection_name=COLLECTION_NAME, points=[
             PointStruct(id=str(uuid.uuid4()), vector=emb_nko.data[0].embedding,
-                       payload={"element_nko": regle_nko, "element_français": explication_fr, "type": "règle"}),
+                        payload={"element_nko": regle_nko, "element_français": explication_fr, "type": "règle"}),
             PointStruct(id=str(uuid.uuid4()), vector=emb_fr.data[0].embedding,
-                       payload={"element_nko": regle_nko, "element_français": explication_fr, "type": "règle"})
+                        payload={"element_nko": regle_nko, "element_français": explication_fr, "type": "règle"})
         ])
         return f"Règle apprise : {regle_nko} = {explication_fr}"
     
@@ -204,9 +205,12 @@ async def detecter_et_apprendre(message: str):
         if "=" in content:
             parts = content.split("=", 1)
             fr, nko = normaliser_texte(parts[0].strip()), normaliser_texte(parts[1].strip())
-            if any(c >= "\u07c0" for c in nko) or any(c >= "\u07c0" for c in fr):
-                if any(c >= "\u07c0" for c in fr):
-                    fr, nko = nko, fr
+            
+            # Détection et inversion si le N'ko est dans la première partie (caractères unicode N'ko > U+07C0)
+            if any(c >= "\u07c0" for c in fr) and not any(c >= "\u07c0" for c in nko):
+                fr, nko = nko, fr # Inversion si l'utilisateur a écrit N'ko = Français
+            
+            if any(c >= "\u07c0" for c in nko):
                 
                 # Double indexation (français + N'ko)
                 emb_fr = await LLM_CLIENT.embeddings.create(input=[fr], model=EMBEDDING_MODEL)
@@ -239,10 +243,21 @@ async def lifespan(app: FastAPI):
 
     try:
         await LLM_CLIENT.chat.completions.create(model=LLM_MODEL, messages=[{"role": "user", "content": "ok"}], max_tokens=1)
-        await QDRANT_CLIENT.get_collections()
+        # S'assurer que la collection existe ou la créer si nécessaire (vérification simplifiée)
+        collections = await QDRANT_CLIENT.get_collections()
+        if COLLECTION_NAME not in [c.name for c in collections.collections]:
+            await QDRANT_CLIENT.recreate_collection(
+                collection_name=COLLECTION_NAME,
+                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+                on_disk_payload=True # Pour améliorer les performances d'accès aux payloads
+            )
+            logging.info(f"Collection '{COLLECTION_NAME}' créée.")
+        
         logging.info("Services connectés")
     except Exception as e:
         logging.error(f"Erreur démarrage: {e}")
+        # Optionnel: Arrêter si les services cruciaux échouent.
+        # exit(1) 
 
     asyncio.create_task(background_cleanup())
     yield
@@ -283,10 +298,19 @@ async def chat_endpoint(req: ChatRequest):
         # === RAG + PROMPT STRICT ===
         contexte_rag = await recherche_rag(message)
 
+        # CORRECTION 2: Fusionner le RAG dans le message utilisateur pour une plus grande importance
+        user_message_avec_rag = (
+            f"CONTEXTE RAG (Manuels de référence N'ko que tu m'as enseignés) :\n"
+            f"═══════════════════════════════════════════════════════════════════════════\n"
+            f"{contexte_rag}\n"
+            f"═══════════════════════════════════════════════════════════════════════════\n\n"
+            f"Question de l'utilisateur : {message}"
+        )
+
         messages = [
             {"role": "system", "content": PROMPT_SYSTEM_STRICT},
-            {"role": "system", "content": contexte_rag},
-            {"role": "user", "content": message}
+            # Le RAG est maintenant injecté directement dans le message utilisateur
+            {"role": "user", "content": user_message_avec_rag}
         ]
 
         resp = await LLM_CLIENT.chat.completions.create(
@@ -306,4 +330,5 @@ async def chat_endpoint(req: ChatRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)), workers=1)
+    # Le port est récupéré depuis l'environnement ou utilise 8000 par défaut
+    uvicorn.run("nkotronic_api:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)), workers=1)
