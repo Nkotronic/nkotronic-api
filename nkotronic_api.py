@@ -207,13 +207,24 @@ async def detecter_et_apprendre(message: str):
             if any(c >= "\u07c0" for c in nko) or any(c >= "\u07c0" for c in fr):
                 if any(c >= "\u07c0" for c in fr):
                     fr, nko = nko, fr
-                emb = await LLM_CLIENT.embeddings.create(input=[fr], model=EMBEDDING_MODEL)
-                point = PointStruct(
-                    id=str(uuid.uuid4()),
-                    vector=emb.data[0].embedding,
-                    payload={"element_français": fr, "element_nko": nko, "type": "mot"}
-                )
-                await QDRANT_CLIENT.upsert(collection_name=COLLECTION_NAME, points=[point])
+                
+                # Double indexation (français + N'ko)
+                emb_fr = await LLM_CLIENT.embeddings.create(input=[fr], model=EMBEDDING_MODEL)
+                emb_nko = await LLM_CLIENT.embeddings.create(input=[nko], model=EMBEDDING_MODEL)
+                
+                # Stocker DEUX points
+                await QDRANT_CLIENT.upsert(collection_name=COLLECTION_NAME, points=[
+                    PointStruct(
+                        id=str(uuid.uuid4()),
+                        vector=emb_fr.data[0].embedding,
+                        payload={"element_français": fr, "element_nko": nko, "type": "mot"}
+                    ),
+                    PointStruct(
+                        id=str(uuid.uuid4()),
+                        vector=emb_nko.data[0].embedding,
+                        payload={"element_français": fr, "element_nko": nko, "type": "mot"}
+                    )
+                ])
                 return f"J'ai bien appris : {fr} = {nko}"
     return None
 
