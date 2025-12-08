@@ -1,22 +1,23 @@
-# nkotronic_v9_cors.py
+# nkotronic_api.py – Version finale (texte propre, CORS, équilibre parfait)
 import os
+import re
 import httpx
 from fastapi import FastAPI
 from pydantic import BaseModel
 from openai import OpenAI
 from fastapi.concurrency import run_in_threadpool
-from fastapi.middleware.cors import CORSMiddleware  # ← AJOUT
+from fastapi.middleware.cors import CORSMiddleware
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MANIFESTE_URL = "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/main/NKOTRONIC_KNOWLEDGE"
 MODEL = "gpt-4o-mini"
 
-app = FastAPI(title="Nkotronic v9 — L’équilibre parfait")
+app = FastAPI(title="Nkotronic v9 — Fidèle quand il faut, humain quand il peut")
 
-# === CORS : C'EST ÇA QUI MANQUAIT ===
+# CORS pour Weebly / tout frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],           # Autorise Weebly, localhost, etc.
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,11 +58,11 @@ Question de l’utilisateur : {question}
 RÈGLES D’ÉQUILIBRE :
 1. Si la question concerne le N’ko → réponds UNIQUEMENT avec le Manifeste.
    - Si l’info n’y est pas → "Cette information précise n’existe pas encore dans le Manifeste de Connaissance N’ko."
-   - **Gras** pour le N’ko.
+   - Mets en **gras** les termes en N’ko (le modèle le fait naturellement).
 
-2. Si la question n’a aucun lien avec le N’ko → réponds librement, comme un humain cultivé et sympa.
+2. Si la question n’a aucun lien avec le N’ko → réponds librement, comme un humain cultivé et chaleureux.
 
-Sois naturel, chaleureux, et fidèle à l’esprit du projet N’ko.
+Sois naturel, sincère, et fidèle à l’esprit du projet N’ko.
 
 Réponds maintenant :
 """
@@ -75,9 +76,13 @@ Réponds maintenant :
     )
 
     reponse = completion.choices[0].message.content.strip()
+
+    # NETTOYAGE FINAL : enlève tous les ** du Markdown → texte propre
+    reponse = reponse.replace("**", "")
+
     return ChatResponse(response=reponse)
 
 @app.post("/reload")
 async def reload():
     await charger_manifeste()
-    return {"status": "Manifeste rechargé"}
+    return {"status": "Manifeste rechargé avec succès"}
