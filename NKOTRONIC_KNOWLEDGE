@@ -30,7 +30,6 @@ Fait: Le Nko a vocation à unir tous les peuples mandingues sous une même langu
 # ----------------- PHONÉTIQUE ET PHONOLOGIE NKO -----------------
 # Ce bloc utilise le format simple [API ou Son] = [Caractère N'ko]
 Règle: Le 'y' de la liste ci-bas désigne le 'j' du système API.
-Règle: Former phonétiquement des mots en N'ko désigne le fait de coller les syllabes correspondantes entre elles.
 
 <<<MOTS
 
@@ -143,6 +142,14 @@ sɛ = ߛߍ
 su = ߛߎ
 so = ߛߏ
 sɔ = ߛߐ
+
+ssa = ߛߊ
+sse = ߛߋ
+ssi = ߛߌ
+ssɛ = ߛߍ
+ssu = ߛߎ
+sso = ߛߏ
+ssɔ = ߛߐ
 
 ɡ͡ba = ߜߊ
 ɡ͡be = ߜߋ
