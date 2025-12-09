@@ -1,4 +1,4 @@
-# nkotronic_api.py – Version finale (texte propre, CORS, équilibre parfait)
+# nkotronic_api.py – Nkotronic v10 : Exhaustif, précis, professionnel
 import os
 import re
 import httpx
@@ -8,11 +8,12 @@ from openai import OpenAI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
+# === CONFIG ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MANIFESTE_URL = "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/main/NKOTRONIC_KNOWLEDGE"
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o-mini"  # le plus rapide et économique en 2025
 
-app = FastAPI(title="Nkotronic v9 — Fidèle quand il faut, humain quand il peut")
+app = FastAPI(title="Nkotronic v10 — Le Gardien du N’ko")
 
 # CORS pour Weebly / tout frontend
 app.add_middleware(
@@ -27,11 +28,11 @@ MANIFESTE = ""
 
 async def charger_manifeste():
     global MANIFESTE
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(MANIFESTE_URL)
         r.raise_for_status()
         MANIFESTE = r.text.strip()
-    print("Manifeste chargé. Nkotronic v9 prêt — fidèle quand il faut, humain quand il peut.")
+    print("Manifeste chargé. Nkotronic v10 prêt — exhaustif, précis et professionnel.")
 
 @app.on_event("startup")
 async def startup():
@@ -45,43 +46,71 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    question = req.message
+    question = req.message.strip()
 
-    prompt = f"""
-Tu es Nkotronic, un compagnon intelligent qui maîtrise parfaitement le N’ko.
+    # Normalisation phonétique légère pour mieux détecter les mots N’ko
+    question_lower = question.lower()
+    question_lower = re.sub(r'\s+', ' ', question_lower)
+    question_lower = question_lower.replace("ya", "ya ").replace("ma", "ma ").replace("ka", "ka ").replace("sa", "sa ")
 
-Voici le **Manifeste de Connaissance N’ko actuel** (source canonique prioritaire) :
+    # Détection large du sujet N’ko
+    mots_nko = ["nko", "n'ko", "ߒߞߏ", "kanté", "solomana", "fodé", "alphabet", "écriture",
+                "mandingue", "manden", "bamanankan", "maninka", "dyula", "yamakasi", "grammaire"]
+    est_sujet_nko = any(mot in question_lower for mot in mots_nko)
+
+    if est_sujet_nko:
+        # MODE N’KO : exhaustivité + professionnalisme
+        prompt = f"""
+Tu es Nkotronic, expert mondialement reconnu en langue et écriture N’ko.
+
+Voici les meilleurs manuels de références sur le N’ko (source canonique absolue) :
 {MANIFESTE}
 
 Question de l’utilisateur : {question}
 
-RÈGLES D’ÉQUILIBRE :
-1. Si la question concerne le N’ko → réponds UNIQUEMENT avec le Manifeste.
-   - Si l’info n’y est pas → "Cette information précise n’existe pas encore dans le Manifeste de Connaissance N’ko."
-   - Mets en **gras** les termes en N’ko (le modèle le fait naturellement).
-
-2. Si la question n’a aucun lien avec le N’ko → réponds librement, comme un humain cultivé et chaleureux.
-
-Sois naturel, sincère, et fidèle à l’esprit du projet N’ko.
+RÈGLES STRICTES (à respecter à la lettre) :
+1. Réponds EXCLUSIVEMENT avec les informations contenues dans les manuels ci-dessus.
+2. Combine TOUS les faits pertinents pour une réponse complète et précise.
+3. Mets en **gras** tous les termes en N’ko.
+4. Si l’information demandée n’existe pas → réponds UNIQUEMENT :
+   "Cette information précise n’existe pas encore dans les meilleurs manuels de références sur le N’ko."
+5. Sois clair, pédagogique, chaleureux et exhaustif.
+6. Jamais de "Manifeste" dans la réponse — parle toujours des "meilleurs manuels de références".
 
 Réponds maintenant :
 """
+        temperature = 0.0
+    else:
+        # MODE HUMAIN : conversation libre
+        prompt = f"""
+Tu es Nkotronic, un compagnon intelligent, cultivé et chaleureux.
+Tu maîtrises le N’ko mais cette question ne le concerne pas.
+Tu peux parler de tout avec humour, philosophie, science, amour, etc.
+
+Question : {question}
+
+Réponds comme un humain sympa, sincère et profond.
+"""
+        temperature = 0.7
 
     completion = await run_in_threadpool(
         OpenAI(api_key=OPENAI_API_KEY).chat.completions.create,
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-        max_tokens=600
+        temperature=temperature,
+        max_tokens=700
     )
 
     reponse = completion.choices[0].message.content.strip()
 
-    # NETTOYAGE FINAL : enlève tous les ** du Markdown → texte propre
-    reponse = reponse.replace("**", "")
+    # Nettoyage final : texte propre + orthographe N’ko
+    reponse = reponse.replace("**", "")                    # enlève le Markdown
+    reponse = reponse.replace("j", "y").replace("J", "Y")  # j → y partout
+    reponse = reponse.replace("Je", "Ye").replace("JE", "YE").replace("je", "ye")
 
     return ChatResponse(response=reponse)
 
+# Rechargement manuel du Manifeste (si besoin)
 @app.post("/reload")
 async def reload():
     await charger_manifeste()
