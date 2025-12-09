@@ -27,9 +27,9 @@ Fait: Le Nko est la langue la plus proche de l'ancêtre commun de toutes les lan
 Fait: Le Nko est la langue standard du Mandén.
 Fait: Le Nko a vocation à unir tous les peuples mandingues sous une même langue, une même écriture et une même nation.
 
-# ----------------- ENSEIGNEMENT DE L'ALPHABET NKO -----------------
+# ----------------- PHONÉTIQUE ET PHONOLOGIE NKO -----------------
 # Ce bloc utilise le format simple [API ou Son] = [Caractère N'ko]
-Règle: ߒ désigne La consonne nasale vélaire [ŋ], considérée comme une semi-voyelle par certains linguistes.
+Règle: Le 'y' de la liste ci-bas désigne le 'j' du système API.
 
 <<<MOTS
 
@@ -42,8 +42,10 @@ u = ߎ
 o = ߏ
 ɔ = ߐ
 
-# Consonnes
+# Semi-voyelle
 ŋ = ߒ
+
+#Consonnes
 b = ߓ
 p = ߔ
 t = ߕ
@@ -65,3 +67,161 @@ w = ߥ
 y = ߦ
 
 MOTS>>>
+
+# Les syllables Nko
+<<<MOTS
+
+ba = ߓߊ
+be = ߓߋ
+bi = ߓߌ
+bɛ = ߓߍ
+bu = ߓߎ
+bo = ߓߏ
+bɔ = ߓߐ
+
+pa = ߔߊ
+pe = ߔߋ
+pi = ߔߌ
+pɛ = ߔߍ
+pu = ߔߎ
+po = ߔߏ
+pɔ = ߔߐ
+
+ta = ߕߊ
+te = ߕߋ
+ti = ߕߌ
+tɛ = ߕߍ
+tu = ߕߎ
+to = ߕߏ
+tɔ = ߕߐ
+
+d͡ʒa = ߖߊ
+d͡ʒe = ߖߋ
+d͡ʒi = ߖߌ
+d͡ʒɛ = ߖߍ
+d͡ʒu = ߖߎ
+d͡ʒo = ߖߏ
+d͡ʒɔ = ߖߐ
+
+t͡ʃa = ߗߊ
+t͡ʃe = ߗߋ
+t͡ʃi = ߗߌ
+t͡ʃɛ = ߗߍ
+t͡ʃu = ߗߎ
+t͡ʃo = ߗߏ
+t͡ʃɔ = ߗߐ
+
+da = ߘߊ
+de = ߘߋ
+di = ߘߌ
+dɛ = ߘߍ
+du = ߘߎ
+do = ߘߏ
+dɔ = ߘߐ
+
+ra = ߙߊ
+re = ߙߋ
+ri = ߙߌ
+rɛ = ߙߍ
+ru = ߙߎ
+ro = ߙߏ
+rɔ = ߙߐ
+
+rra = ߚߊ
+rre = ߚߋ
+rri = ߚߌ
+rrɛ = ߚߍ
+rru = ߚߎ
+rro = ߚߏ
+rrɔ = ߚߐ
+
+sa = ߛߊ
+se = ߛߋ
+si = ߛߌ
+sɛ = ߛߍ
+su = ߛߎ
+so = ߛߏ
+sɔ = ߛߐ
+
+ɡ͡ba = ߜߊ
+ɡ͡be = ߜߋ
+ɡ͡bi = ߜߌ
+ɡ͡bɛ = ߜߍ
+ɡ͡bu = ߜߎ
+ɡ͡bo = ߜߏ
+ɡ͡bɔ = ߜߐ
+
+fa = ߝߊ
+fe = ߝߋ
+fi = ߝߌ
+fɛ = ߝߍ
+fu = ߝߎ
+fo = ߝߏ
+fɔ = ߝߐ
+
+ka = ߞߊ
+ke = ߞߋ
+ki = ߞߌ
+kɛ = ߞߍ
+ku = ߞߎ
+ko = ߞߏ
+kɔ = ߞߐ
+
+la = ߟߊ
+le = ߟߋ
+li = ߟߌ
+lɛ = ߟߍ
+lu = ߟߎ
+lo = ߟߏ
+lɔ = ߟߐ
+
+ma = ߡߊ
+me = ߡߋ
+mi = ߡߌ
+mɛ = ߡߍ
+mu = ߡߎ
+mo = ߡߏ
+mɔ = ߡߐ
+
+ɲa = ߢߊ
+ɲe = ߢߋ
+ɲi = ߢߌ
+ɲɛ = ߢߍ
+ɲu = ߢߎ
+ɲo = ߢߏ
+ɲɔ = ߢߐ
+
+na = ߣߊ
+ne = ߣߋ
+ni = ߣߌ
+nɛ = ߣߍ
+nu = ߣߎ
+no = ߣߏ
+nɔ = ߣߐ
+
+ha = ߤߊ
+he = ߤߋ
+hi = ߤߌ
+hɛ = ߤߍ
+hu = ߤߎ
+ho = ߤߏ
+hɔ = ߤߐ
+
+wa = ߥߊ
+we = ߥߋ
+wi = ߥߌ
+wɛ = ߥߍ
+wu = ߥߎ
+wo = ߥߏ
+wɔ = ߥߐ
+
+ya = ߦߊ
+ye = ߦߋ
+yi = ߦߌ
+yɛ = ߦߍ
+yu = ߦߎ
+yo = ߦߏ
+yɔ = ߦߐ
+
+MOTS>>>
+
