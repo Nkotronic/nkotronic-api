@@ -104,9 +104,8 @@ Réponds comme un humain sympa, sincère et profond.
     reponse = completion.choices[0].message.content.strip()
 
     # Nettoyage final : texte propre + orthographe N’ko
-    reponse = reponse.replace("**", "")                    # enlève le Markdown
-    reponse = reponse.replace("j", "y").replace("J", "Y")  # j → y partout
-    reponse = reponse.replace("Je", "Ye").replace("JE", "YE").replace("je", "ye")
+    # Nettoyage final : texte propre seulement (plus de j→y)
+    reponse = reponse.replace("**", "")
 
     return ChatResponse(response=reponse)
 
