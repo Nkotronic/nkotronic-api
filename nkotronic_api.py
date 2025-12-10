@@ -1,6 +1,5 @@
-# nkotronic_api.py – Nkotronic v13-OK : RAG 100% fonctionnel (10 décembre 2025)
+# nkotronic_api.py – Nkotronic v14 : Sherlock Mode – Mémoire totale + réponses factuelles instantanées
 import os
-import re
 import httpx
 import numpy as np
 from fastapi import FastAPI
@@ -9,16 +8,16 @@ from openai import OpenAI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-# === CONFIG ===
+# ========================= CONFIG =========================
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MANIFESTE_URL = "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/main/NKOTRONIC_KNOWLEDGE"
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o-mini-2024-07-18"
 EMBEDDING_MODEL = "text-embedding-ada-002"
-CHUNK_SIZE = 600
-TOP_K = 7
-BATCH_SIZE = 800  # sûr sous 300k tokens
+CHUNK_SIZE = 700
+TOP_K = 8
+BATCH_SIZE = 800
 
-app = FastAPI(title="Nkotronic v13 – Mémoire totale + réponses instantanées")
+app = FastAPI(title="Nkotronic v14 – Sherlock Mode")
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,102 +31,88 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 chunks = []
 embeddings = None
 
-def split_into_chunks(text, size=CHUNK_SIZE):
-    return [text[i:i+size] for i in range(0, len(text), size)]
+# ========================= UTILITAIRES =========================
+def split_chunks(text):
+    return [text[i:i+CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)]
 
 async def embed_batch(batch):
     resp = client.embeddings.create(input=batch, model=EMBEDDING_MODEL)
     return [e.embedding for e in resp.data]
 
-async def charger_rag():
+async def load_rag():
     global chunks, embeddings
-    async with httpx.AsyncClient(timeout=60.0) as c:
+    async with httpx.AsyncClient() as c:
         r = await c.get(MANIFESTE_URL)
         r.raise_for_status()
-        manifeste = r.text.strip()
-    
-    chunks = split_into_chunks(manifeste)
-    print(f"{len(chunks)} chunks créés → embedding par batch de {BATCH_SIZE}…")
-    
-    all_embeddings = []
+        text = r.text.strip()
+
+    chunks = split_chunks(text)
+    print(f"{len(chunks)} chunks créés → embedding en cours…")
+
+    all_emb = []
     for i in range(0, len(chunks), BATCH_SIZE):
-        batch = chunks[i:i+BATCH_SIZE]
-        # L'AWAIT ÉTAIT MANQUANT ICI → CORRIGÉ
-        batch_emb = await embed_batch(batch)
-        all_embeddings.extend(batch_emb)
-        print(f"  → batch {i//BATCH_SIZE + 1} terminé")
-    
-    embeddings = np.array(all_embeddings)
-    print(f"RAG chargé à 100% : {len(chunks)} chunks prêts – Nkotronic v13 live !")
+        all_emb.extend(await embed_batch(chunks[i:i+BATCH_SIZE]))
+    embeddings = np.array(all_emb)
+    print("Nkotronic v14 chargé – mémoire 100 % – mode Sherlock activé")
 
 @app.on_event("startup")
 async def startup():
-    await charger_rag()
+    await load_rag()
 
-class ChatRequest(BaseModel):
+# ========================= MODELES =========================
+class Msg(BaseModel):
     message: str
 
-class ChatResponse(BaseModel):
+class Rep(BaseModel):
     response: str
 
-def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
+# ========================= SIMILARITÉ =========================
+def cos_sim(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-8)
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
-    question = req.message.strip()
-    q_lower = question.lower()
+# ========================= ROUTE CHAT =========================
+@app.post("/chat", response_model=Rep)
+async def chat(req: Msg):
+    q = req.message.strip().lower()
 
-    mots_nko = ["nko","n'ko","nk","ߒߞߏ","kanté","solomana","fodé","alphabet","écriture",
-                "mandingue","manden","bamanankan","maninka","dyula","grammaire"]
-    est_nko = any(m in q_lower for m in mots_nko) or " nko" in f" {q_lower}"
+    # Détection N’ko très large
+    keywords = ["nko","n'ko","ߒߞߏ","kanté","solomana","fodé","ߞߊ߲","ߡߊ߲߬ߘߋ","ߘߌ߯ߟߊ","ton","voyelle","grammaire","alphabet","écriture"]
+    if any(k in q for k in keywords):
+        # RAG
+        q_emb = np.array(client.embeddings.create(input=[req.message], model=EMBEDDING_MODEL).data[0].embedding)
+        sims = [cos_sim(q_emb, e) for e in embeddings]
+        top_idx = np.argsort(sims)[-TOP_K:][::-1]
+        context = "\n\n".join(chunks[i] for i in top_idx)
 
-    if est_nko and embeddings is not None:
-        q_emb = client.embeddings.create(input=[question], model=EMBEDDING_MODEL).data[0].embedding
-        q_vec = np.array(q_emb)
+        prompt = f"""Tu es Nkotronic, intelligence analytique spécialisée N’ko.
+Réponds exclusivement à partir des extraits suivants, sans métaphore ni émotion.
 
-        similarities = [cosine_sim(q_vec, emb) for emb in embeddings]
-        top_indices = np.argsort(similarities)[-TOP_K:][::-1]
-        context = "\n\n".join(chunks[i] for i in top_indices)
-
-        prompt = f"""
-Tu es Nkotronic, expert absolu en langue et écriture N’ko.
-
-Passages les plus pertinents des meilleurs manuels de références :
+Extraits :
 {context}
 
-Question : {question}
+Question : {req.message}
 
-RÈGLES STRICTES :
-1. Réponds UNIQUEMENT avec ces passages
-2. Combine tous les faits pertinents
-3. Mets en **gras** tous les termes en N’ko
-4. Si l’info manque → "Cette information précise n’existe pas encore dans les meilleurs manuels de références sur le N’ko."
-5. Sois clair, chaleureux, exhaustif
-
-Réponds maintenant :
-"""
-        temperature = 0.0
+Réponse factuelle uniquement."""
+        temp = 0.0
     else:
-        prompt = f"""Tu es Nkotronic, compagnon chaleureux.
-Question : {question}
-Réponds librement avec humour et profondeur."""
-        temperature = 0.7
+        prompt = f"Réponse brève et factuelle : {req.message}"
+        temp = 0.0
 
     completion = await run_in_threadpool(
         client.chat.completions.create,
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=temperature,
-        max_tokens=700
+        temperature=temp,
+        max_tokens=500
     )
 
-    reponse = completion.choices[0].message.content.strip()
-    reponse = reponse.replace("**", "")
+    answer = completion.choices[0].message.content.strip()
+    answer = answer.replace("**", "")
 
-    return ChatResponse(response=reponse)
+    return Rep(response=answer)
 
+# ========================= RELOAD =========================
 @app.post("/reload")
 async def reload():
-    await charger_rag()
-    return {"status": "RAG rechargé – mémoire totale à jour"}
+    await load_rag()
+    return {"status": "Mémoire rechargée – 100 % à jour"}
