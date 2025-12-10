@@ -251,10 +251,480 @@ MOTS>>>
 
 # ----------------- GRAMMAIRE NKO -----------------
 Règle: Le ߑ désigne le dadogbasilan (ߘߊߘߐߜߊ߬ߛߌ߬ߟߊ߲) qui sert à montrer qu'il n'y a pas de voyelle entre deux consonnes.
+Fait: Par exemple si l'on veut rendre 'bra' en Nko on écrira 'ߓߑߙߊ'.
+Fait: Certains aiment utiliser ߵ à la place de ߑ, on obtient alors 'ߓߵߙߊ' au lieu de ߓߑߙߊ'.
+Fait: Mais c'est une erreur qu'il faut corriger, la vrai règle est ߓߑߙߊ'.
 Règle: Le ߑ désigne aussi le yilidölödjantondé (ߦߟߌߘߟߐߖߊ߲-ߕߏ߲ߘߋ), c'est-à-dire le point-virgule.
+Fait: Le yilidölödjantondé n'est jamais collé aux mots, par exemple 'ߖߐ ߑ'.
+Règle: Le Kanmaséré (ߞߊ߲ߡߊߛߙߋ) désigne le ton, la tonalité et la diacritique en Nko.
+Fait: à l'origine le Nko avait 12 tons, mais 4 on été supprimés car ça complexifiait trop l'orthographe et la grammaire.
+Fait: Les 4 tons qui ont été supprimés sont le ߞߊ߲ߡߊߦߟߍ ߕߍߘߐ, le ߞߊ߲ߡߊߦߟߍ ߕߍߘߐ ߛߡߊ߬ߣߍ߲, le ߞߊ߲ߡߊߖߌ߮ ߕߍߘߐ et le ߞߊ߲ߡߊߖߌ߮ ߕߍߘߐ ߛߡߊ߬ߣߍ߲.
+Fait: Respectivement, le ton haut neutre, le ton haut neutre allongé, le ton bas neutre et le ton bas neutre allongé.
+Fait: Maintenant aujourd'hui il reste 8 tons en Nko, dont 4 tons courts et 4 tons longs.
+Fait: Les tons courts sont appelées 'Kanmaséré Gbègbèdè lu' (ߞߊ߲ߡߊߛߙߋ ߜߍߜߘߍ ߟߎ߫).
+Fait: Les tons longs sont appelées 'Kanmaséré Samanèn nu' (ߞߊ߲ߡߊߛߙߋ ߛߡߊ߬ߣߍ߲ ߠߎ߫).
+Règle: Le Kanmaséré Gbègbèdè désigne le ton court.
+Règle: Le Kanmaséré samanèn désigne le ton long.
+Fait: Les 4 tons courts sont le ton montant calme, le ton montant brusque appuyé, le ton descendant calme, le ton descendant brusque appuyé.
+Fait: Les 4 tons longs sont les versions longues des tons courts.
+Fait: Le ton montant calme est le seul qui n'a pas de diacritique.
+Règle: Le ߫ désigne la diacritique du ton montant brusque et appuyé.
+Règle: Le ߭ désigne la diacritique du ton descendant calme.
+Règle: Le ߬ désigne la diacritique du ton descendant brusque appuyé.
+Règle: Le ߮ désigne la diacritique du ton montant calme long.
+Règle: Le ߯ désigne la diacritique du ton montant brusque appuyé long.
+Règle: Le ߱ désigne la diacritique du ton descendant calme long.
+Règle: Le ߰ désigne la diacritique du ton descendant brusque appuyé long.
+Fait: ߟߎ߫ est la marque du pluriel en Nko, il n'est jamais collé au mot (exemple : ߞߐ߲ߛߏ ߟߎ߫).
+Règle: Le döyèlèman (ߘߐ߬ߦߟߍ߬ߡߊ߲) désigne la règle qui fait muter ߟ et ߦ en ߠ et ߧ en présence de sons naseaux.
+Règle La règle du döyèlèman désigne la règle de la mutation.
+Fait: En Nko, ߟ devient ߠ quand ߟ est précédé par une voyelle nasale (par exemple le ߍ߲) ou le ߒ.
+Fait: Par exemple ߛߡߖߣߍ߲ ߟߎ߫ devient ߛߡߊߣߍ߲ ߠߎ߫.
+Fait: En Nko, ߦ devient ߧ quand ߦ est précédé par une voyelle nasale (par exemple le ߊ߲) ou le ߒ.
+Fait: Par exemple ߞߊ߲ ߦߋ߫ devient ߞߊ߲ ߧߋ߫.
+Fait: ߠ est appelé ߣ ߥߟߏߛߏ (na wolosso).
+Fait: ߧ est appelé ߢ ߥߟߏߛߏ (gna wolosso).
+Fait: Tous les mots qui commencent par ߟߐ߲ avec ou sans diacritiques ne subissent jamais le döyèlèman.
+Fait: Le suffixe ߟߊ߲ est le suffixe agentif pour tout ce qui n'est pas humain, animal et végétal.
+Fait: Le suffixe ߟߊ߲ est le suffixe agentif instrumental, désignant tout ce qui est objet, chose inanimée, outils, instruments.
+Fait: Le suffixe ߟߊ߲ est le suffixe agentif pour tout ce qui n'est pas humain.
+Règle: Le suffixe ߟߊ߲ désigne le suffixe qui sert à le nom d'agent instrumental qui fait l'action.
+Fait: Le suffixe ߟߊ߲ ne subit jamais la règle du döyèlèman.
+Fait: Le suffixe ߟߊ߲ߘߌ ne subit jamais la règle du döyèlèman.
+Fait: Le suffixe ߟߌ devient toujours ߠߌ߲ quand il ߟߌ est précédé par une voyelle nasalisée ou le ߒ.
+Règle: Le Kannadiyalan (ߞߊ߲ߠߊߘߌߦߊߟߊ߲) désigne le point de nasalisation (߲).
+Fait: Le Kannadiyalan est placé sous une voyelle pour la nasaliser, par exemple ߊ=a et ߊ߲=an.
+Règle: Le sèbèdénnabé (ߛߓߍߘߋ߲ߠߊߓߋ) désigne l'élision Nko.
+Règle: Le ߵ désigne l'apostrophe Nko qui indique l'élision d'une voyelle à ton bas.
+Fait: Par exemple ߒ ߞߊ߬ ߊߟߎ߫ ߦߋ߫ devient ߒ ߞߵߊߟߎ߫ ߦߋ߫.
+Règle: Le ߴ désigne l'apostrophe Nko qui indique l'élision d'une voyelle à ton haut.
+Fait: Par exemple ߊߟߎ߫ ߦߋ߫ ߊߟߎ߫ ߕߍ߮ ߡߊߞߏ߫ devient ߊߟߎ߫ ߦߴߊߟߎ߫ ߕߍ߮ ߡߊߞߏ߫.
+Fait: Pratiquer l'élision n'est pas obligatoire, mais elle se pratique beaucoup à l'oral.
+Règle: ߳ désigne une diacritique qu'on met sur certaines lettres pour en créer de nouvelles.
+Règle: ‏‏‏ߺ désigne le ladjagnalan (ߟߊߖߊ߲߬ߧߊ߬ߟߊ߲), il sert a prolonger l'espace entre deux lettres pour que le mot prenne plus de place.
+Fait: Utiliser le ladjagnalan n'est pas obligatoire.
+Règle: Le ߽ désigne un signe de l'alphabet N'Ko qui crée des abréviations pour les unités de mesure.
+Règle: Le tondéyali (ߕߏ߲ߘߋߦߊߟߌ) désigne la ponctuation Nko.
+Règle: Le '؟' désigne le point d'interrogation (?).
+Règle: Le '.' désigne le point (.).
+Règle: Le 'ߑ' désigne le point-virgule (;).
+Règle: Le '߸' désigne la virgule (,).
+Règle: Le ‏‏'߹' désigne le point d'exclamation (!).
+Règle: Le '߷' désigne Le gbakurunen, un signe Nko qui indique la fin d’une section importante de texte ; comme le ⟨⁂⟩ et le ⟨⸎⟩.
+Règle: Le '߿' désigne le symbole et l'emblème Nko de l'argent, de la monnaie.
+Fait: Par exemple dans un texte si l'on veut écrire argent ou monnaie, on peut mettre ߿ à la place.
+Fait: Le ߿ se prononce ߕߊߡߊ߲ (taman). 
+Règle: Le ߾ désigne la monnaie dirham ou drachme.
+Fait:  Le ߾ se prononce ߘߙߐߡߍ (dɔrɔmɛ).
+Fait: Le Nko a 27 lettres de base.
+Fait: Le Nko a 7 voyelle de base.
+Fait: Le ߒ est appelé le tèdö, c'est-à-dire le neutre ou l'intermédiaire.
+Fait: Au sein de la nkosphère on considère le ߒ comme une semi-voyelle et une semi-consonne.
+Fait: Le Nko a 19 consonnes de base.
+Fait: Les 3 consonnes co-articulées sont ߖ ߗ ߜ.
+Fait: Il y a 10 chiffre en Nko.
+Fait: Les chiffres se lisent de droite à gauche.
+Fait: les chiffres s'assemblent entre eux selon les mêmes règles qu'en français.
+Fait: Les chiffres suivent les mêmes règles de calculs qu'en français avec les mêmes symboles de calcul.
+Règle: Le lasséli (ߟߊ߬ߛߋ߬ߟߌ) désigne la phrase de type déclaration.
+Règle: Le dögnininkali (ߘߐ߬ߢߌ߬ߣߌ߲߬ߞߊ߬ߟߌ) désigne la phrase de type interrogation.
+Règle: Le sönköko (ߛߐ߲ߞߐ߫ߞߏ) désigne la phrase de type exclamation.
+Règle: Le faningnali (ߝߊ߬ߣߌ߲߬ߧߊ߬ߟߌ) désigne la phrase de type négation.
+Règle: Le Lɔŋna (ߟߐ߬ߒߠߊ) désigne la phrase de type injonction.
+Règle: Le gbéén (ߜߋ߲) désigne la syllabe.
+Fait: Le Nko est une langue très monosyllabique.
+Fait: La plupart des mots sont composés d'une seule syllabe.
+Fait: Dans le Nko, les mots tendent à être très courts.
+Fait: Les mots Nko portent souvent plusieurs sens ou fonctions grammaticales.
+Fait: Ces fonctions et sens varient en fonction du contexte dans lequel ils sont utilisés.
+Fait: Dans le Nko, chaque syllabe correspond généralement à un morphème (unité de sens minimale).
+Fait: chaque gbéén peut avoir différents tons qui changent le sens du mot.
+Fait: Par exemple, le son "ma" peut signifier "Dieu", "grand-mère", "Dugong" ou "ne", selon le ton utilisé.
+Règle: Le gbarali (ߜߙߊ߬ߟߌ) désigne la règle de l'association.
+Fait: En Nko si dans un mot deux syllabes se suivent en ayant les consonnes différentes mais les voyelles identiques, alors on écrit pas la première voyelle.
+Fait: Par exemple ߓߊߛߊ devient ߓߛߊ.
+Fait: La première voyelle est toujours là, on la prononce mais on ne l'écrit pas.
+Fait: On accélère également la prononciation quand on voit cette règle appliquée.
+Fait: Cette une règle obligatoire, ne pas l'appliquer est une faute d'orthographe.
+Fait: On ne peut faire le gbarali qu'entre 2 syllabes, ni plus ni moins.
+Fait: Quand un mot à plus de 2 syllabes, alors ce sont les deux premiers mots qui subissent le gbarali.
+Fait: Si ce sont les même voyelles mais qu'une d'entre-elles est nasalisée alors on ne fait pas le gbarali.
+Fait: Si les deux voyelles sont nasalisées alors one ne fait pas le gbarali.
+Fait: Si les deux voyelles sont différentes alors le gbarali est interdit.
+Fait: Quand le gbarali change le sens du mot dû à l'accélération de la prononciation alors le gbarali est interdit.
+Fait: En effet dans le Nko à l'oral, la vitesse de prononciation peut changer le sens d'un mot.
+Fait: Le gbarali est interdit si les deux syllabes ont les mêmes consonnes.
+Fait: Le gbarali est interdit si les deux voyelles n'ont pas les mêmes diacritiques, sauf exceptions.
+Fait: Si au moins l'une des deux syllabes a le ߚ alors le gbarali est interdit.
+Fait: Si au moins l'une des deux syllabes possède la diacritique ߭ alors le gbarali est interdit.
+Fait: Dans la grammaire Nko il y a traditionnellement 10 espèces de mots.
+Fait: Le nom, le pronom, l'adjectif, l'auxiliaire, le verbe, la particule, l'adverbe, le corroboratif, l'interrogatif, l'interjection.
+Fait: Il y a 5 catégories de noms dérivés de verbes.
+Fait: 1/ le nom qui découle du verbe, on ajoute à ce dernier le suffixe li (ߟߌ) ou ya (ߦߊ) pour forger ce nom.
+Fait: Ex : ߞߊ߬ ߥߊ߫=ka wa (aller) → ߥߊߟߌ=wali (la départure) ; ߞߊ߬ ߛߊ߬=ka sa (mourir) → ߛߊ߬ߦߊ=saya (la mort).
+Règle: ߞߊ߬ (ka) désigne entre autre la marque de l'infinitif en nko, comme 'to' en anglais.
+Fait: 2/le nom qui découle du sujet actif → adjectif nominal issu du verbe, obtenu avec le suffixe la (ߟߊ) ou ba (ߓߊ߮).
+Fait: Ex :  ߞߊ߬ ߛߎ߬ߣߐ߰=ka suno (dormir) → ߛߎ߬ߣߐ߰ߟߊ=sunola (le dormeur) ; ߞߊ߬ ߛߌ߲ߘߌ߫=ka sïndi (inventer) → ߛߌ߲ߘߌߓߊ߮=sïndiba (inventeur).
+Fait: 3/ le nom qui découle du sujet passif → adjectif nominal issu du verbe, obtenu avec le suffixe ߓߊ߰ߕߐ= bato. Ex : ka ߞߊ߬ ߛߎ߬ߣߐ߰=ka suno (dormir)  → ߛߎ߬ߣߐ߰ߓߊ߰ߕߐ=sunobato (le (très) dormant ou l'endormi (profond)).
+Fait: 4/ le nom d’objet qui exécute l’action : nom de la chose avec laquelle on exécute une action, s’obtient en ajoutant le suffixe lan (ߟߊ߲) au verbe. Ex : ߞߊ߬ ߊ߬ ߟߊߛߎߡߊ߫ =ka a lasouma (refroidir) → ߟߊߛߎߡߊߟߊ߲=lasoumalan (refroidisseur).
+Fait: Dans " ߞߊ߬ ߊ߬ ߟߊߛߎߡߊ߫" le ߊ߬ isolé seul au milieu est le pronom personnel réfléchi à l'infinitif.
+Fait: 5/ le nom du temps d’action : on l’obtient par l’ajout du suffixe ߕߐ = tɔ au verbe pour le gérondif.
+Fait: Pour le participe présent on l’obtient par l’ajout du suffixe ߕߐߟߊ= tɔla au verbe.
+Fait: Ex : ߞߊ߬ ߕߊ߬ߡߌ߲߬ = ka tamin (passer) → ߕߊ߬ߡߌ߲߬ߕߐ= tamintɔ  (se traduit par "en passant" ou "sur le point de passer").
+Fait: Ex : ߕߊ߬ߡߌ߲߬ߕߐߟߊ = tamintɔ́la ("en train d'être en passant", "être en train d'être sur le point de passer").
+Règle: Phrase au présent + verbe transitif + forme positive désigne : sujet/pronom + ߦߋ߫ + verbe + ߟߊ߫ + complément.
+Règle: Phrase au présent + verbe transitif + forme négative désigne : sujet/pronom + ߕߍ߫ + verbe + ߟߊ߫ + complément.
+Règle: Phrase au présent + verbe pronominal + forme positive désigne : sujet/pronom + ߦߋ߫ + pronom réfléchi + verbe + ߟߊ߫ + complément.
+Règle: Phrase au présent + verbe pronominal + forme négative désigne : sujet/pronom + ߕߍ߫ + pronom réfléchi + verbe + ߟߊ߫ + complément.
+Fait: Exception n°1 au présent : quand la phrase concerne l’âge de quelqu’un ou quelque chose, alors la structure de la phrase N’ko équivalente sera : forme positive : sujet/pronom + ߛߊ߲߬ + âge ; forme négative : sujet/pronom + ߡߊ߬ ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au présent : quand la phrase concerne le nom de quelqu’un ou quelque chose, alors la structure de la phrase N’ko équivalente sera : forme positive : sujet/pronom + ߕߐ߮ + nom ; forme négative : sujet/pronom + ߕߐ߮ + ߕߍ߫+ nom + ߘߌ߫.
+Règle: Phrase à l’imparfait + verbe transitif + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߦߋ߫ + verbe + ߟߊ߫ + complément.
+Règle: Phrase à l’imparfait + verbe transitif + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߕߍ߫ + verbe + ߟߊ߫ + complément.
+Règle: Phrase à l’imparfait + verbe pronominal + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߦߋ߫ + pronom réfléchi + verbe + ߟߊ߫ + complément.
+Règle: Phrase à l’imparfait + verbe pronominal + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߕߍ߫ + pronom réfléchi + verbe + ߟߊ߫ + complément.
+Fait: Exception n°1 à l’imparfait (âge) : forme positive : sujet/pronom + ߕߘߍ߫ + ߛߊ߲߬ + âge ; forme négative : sujet/pronom + ߕߘߍ߫ + ߡߊ߬ ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 à l’imparfait (nom) : forme positive : sujet/pronom + ߕߘߍ߫ + ߕߐ߮ + nom ; forme négative : sujet/pronom + ߕߘߍ߫ + ߕߐ߮ + ߕߍ߫ + nom + ߘߌ߫.
+Règle: Phrase au passé simple + verbe transitif + forme positive désigne : sujet/pronom + ߖߘߍ߬ + verbe + ߘߊ߫ + complément.
+Règle: Phrase au passé simple + verbe transitif + forme négative désigne : sujet/pronom + ߖߘߍ߬ + ߡߊ߬ + verbe + complément.
+Règle: Phrase au passé simple + verbe pronominal + forme positive désigne : sujet/pronom + ߞߊ߬ + pronom réfléchi + verbe + complément.
+Règle: Phrase au passé simple + verbe pronominal + forme négative désigne : sujet/pronom + ߡߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au passé simple (âge) : forme positive : sujet/pronom + ߛߊ߲߬ + ߕߘߍ߫ + ߘߊ߫ + âge + ߟߋ߬ ߘߌ߫ ; forme négative : sujet/pronom + ߕߘߍ߫ + ߡߊ߬ + ߣߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au passé simple (nom) : forme positive : sujet/pronom + ߕߐ߮ + ߘߊ߫ + ߟߋ߬ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߕߐ߮ + ߡߊ߬ + ߕߘߍ߫ + nom + ߘߌ߫.
+Règle: Phrase au futur simple + verbe transitif + forme positive désigne : sujet/pronom + ߘߌ߫ + verbe + complément.
+Règle: Phrase au futur simple + verbe transitif + forme négative désigne : sujet/pronom + ߕߍ߫ + verbe + complément.
+Règle: Phrase au futur simple + verbe pronominal + forme positive désigne : sujet/pronom + ߘߌ߫ + pronom réfléchi + verbe + complément.
+Règle: Phrase au futur simple + verbe pronominal + forme négative désigne : sujet/pronom + ߕߍ߫ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au futur simple (âge) : forme positive : sujet/pronom + ߘߌ߫ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߕߍ߫ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au futur simple (nom) : forme positive : sujet/pronom + ߘߌ߫ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߕߍ߫ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase au passé composé + verbe transitif + forme positive désigne : sujet/pronom + ߓߘߊ߫ + verbe + complément.
+Règle: Phrase au passé composé + verbe transitif + forme négative désigne : sujet/pronom + ߡߊ߬ + verbe + complément.
+Règle: Phrase au passé composé + verbe pronominal + forme positive désigne : sujet/pronom + ߓߘߊ߫ + pronom réfléchi + verbe + complément.
+Règle: Phrase au passé composé + verbe pronominal + forme négative désigne : sujet/pronom + ߡߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au passé composé (âge) : forme positive : sujet/pronom + ߓߘߊ߫ +ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߡߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au passé composé (nom) : forme positive : sujet/pronom + ߓߘߊ߫ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߡߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase au plus-que-parfait + verbe transitif + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߓߘߊ߫ + verbe + complément.
+Règle: Phrase au plus-que-parfait + verbe transitif + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߡߊ߬ + verbe + complément.
+Règle: Phrase au plus-que-parfait + verbe pronominal + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߓߘߊ߫ + pronom réfléchi + verbe + complément.
+Règle: Phrase au plus-que-parfait + verbe pronominal + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߡߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au plus-que-parfait (âge) : forme positive : sujet/pronom + ߕߘߍ߫ + ߓߘߊ߫ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߕߘߍ߫ + ߡߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au plus-que-parfait (nom) : forme positive : sujet/pronom + ߕߘߍ߫ + ߓߘߊ߫ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߕߘߍ߫ + ߡߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase au passé antérieur + verbe transitif + forme positive désigne : sujet/pronom + ߣߊ߬ + ߘߊ߫ + verbe + complément.
+Règle: Phrase au passé antérieur + verbe transitif + forme négative désigne : sujet/pronom + ߡߊ߬ + ߣߊ߬ + verbe + complément.
+Règle: Phrase au passé antérieur + verbe pronominal + forme positive désigne : sujet/pronom + ߣߊ߬ + ߘߊ߫ + pronom réfléchi + verbe + complément.
+Règle: Phrase au passé antérieur + verbe pronominal + forme négative désigne : sujet/pronom + ߡߊ߬ + ߣߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au passé antérieur (âge) : forme positive : sujet/pronom +  ߣߊ߬ + ߘߊ߫ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߡߊ߬ + ߣߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au passé antérieur (nom) : forme positive : sujet/pronom +  ߣߊ߬ + ߘߊ߫ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߡߊ߬ + ߣߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase au futur antérieur + verbe transitif + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߘߌߣߊ߬ + verbe + complément.
+Règle: Phrase au futur antérieur + verbe transitif + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߕߍߣߊ߬ + verbe + complément.
+Règle: Phrase au futur antérieur + verbe pronominal + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߘߌߣߊ߬ + pronom réfléchi + verbe + complément.
+Règle: Phrase au futur antérieur + verbe pronominal + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߕߍߣߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au futur antérieur (âge) : forme positive : sujet/pronom + ߕߘߍ߫ + ߘߌߣߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߕߘߍ߫ + ߕߍߣߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au futur antérieur (nom) : forme positive : sujet/pronom + ߕߘߍ߫ + ߘߌߣߊ߬ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߕߘߍ߫ + ߕߍߣߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase au subjonctif présent + verbe transitif + forme positive désigne : sujet/pronom + ߞߊ߫ + ߞߊ߲߬ + ߞߊ߬ + verbe + complément.
+Règle: Phrase au subjonctif présent + verbe transitif + forme négative désigne : sujet/pronom + ߡߊ߬ + ߞߊ߲߬ + ߞߊ߬ + verbe + complément.
+Règle: Phrase au subjonctif présent + verbe pronominal + forme positive désigne : sujet/pronom + ߞߊ߫ + ߞߊ߲߬ + ߞߊ߬ + pronom réfléchi + verbe + complément.
+Règle: Phrase au subjonctif présent + verbe pronominal + forme négative désigne : sujet/pronom + ߡߊ߬ + ߞߊ߲߬ + ߞߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au subjonctif présent (âge) : forme positive : sujet/pronom + ߞߊ߫ + ߞߊ߲߬ + ߞߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߡߊ߬ + ߞߊ߲߬ + ߞߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au subjonctif présent (nom) : forme positive : sujet/pronom + ߞߊ߫ + ߞߊ߲߬ + ߞߊ߬ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߡߊ߬ + ߞߊ߲߬ + ߞߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase au subjonctif imparfait + verbe transitif + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߞߊ߫ + ߞߊ߲߬ + ߞߊ߬ + verbe + complément.
+Règle: Phrase au subjonctif imparfait + verbe transitif + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߡߊ߬ + ߞߊ߲߬ + ߞߊ߬ + verbe + complément.
+Règle: Phrase au subjonctif imparfait + verbe pronominal + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߞߊ߫ + ߞߊ߲߬ + ߞߊ߬ + pronom réfléchi + verbe + complément.
+Règle: Phrase au subjonctif imparfait + verbe pronominal + forme négative désigne : sujet/pronom + ߕߘߍ + ߡߊ߬ + ߞߊ߲߬ + ߞߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au subjonctif imparfait (âge) : forme positive : sujet/pronom + ߕߘߍ߫ + ߞߊ߫ + ߞߊ߲߬ + ߞߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߕߘߍ߫ + ߡߊ߬ + ߞߊ߲߬ + ߞߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au subjonctif imparfait (nom) : forme positive : sujet/pronom + ߕߘߍ߫ + ߞߊ߫ + ߞߊ߲߬ + ߞߊ߬ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߕߘߍ߫ + ߡߊ߬ + ߞߊ߲߬ + ߞߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase au conditionnel présent + verbe transitif + forme positive désigne : sujet/pronom + ߘߌߣߊ߬ + verbe + complément.
+Règle: Phrase au conditionnel présent + verbe transitif + forme négative désigne : sujet/pronom + ߕߍߣߊ߬ + verbe + complément.
+Règle: Phrase au conditionnel présent + verbe pronominal + forme positive désigne : sujet/pronom + ߘߌߣߊ߬ + pronom réfléchi + verbe + complément.
+Règle: Phrase au conditionnel présent + verbe pronominal + forme négative désigne : sujet/pronom + ߕߍߣߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au conditionnel présent (âge) : forme positive : sujet/pronom + ߘߌߣߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߕߍߣߊ߬ + ߛߊ߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au conditionnel présent (nom) : forme positive : sujet/pronom + ߘߌߣߊ߬ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߕߍߣߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase au conditionnel passé + verbe transitif + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߘߌ߫ + verbe + complément.
+Règle: Phrase au conditionnel passé + verbe transitif + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߕߍ߫ + verbe + complément.
+Règle: Phrase au conditionnel passé + verbe pronominal + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߘߌ߫ + pronom réfléchi + verbe + complément.
+Règle: Phrase au conditionnel passé + verbe pronominal + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߕߍ߫ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 au conditionnel passé (âge) : forme positive : sujet/pronom + ߕߘߍ߫ + ߘߌ߫ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߕߘߍ߫ + ߕߍ߫ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 au conditionnel passé (nom) : forme positive : sujet/pronom + ߕߘߍ߫ + ߘߌ߫ + ߕߐ߫ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߕߘߍ + ߕߍ߫ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase à l’impératif présent + verbe transitif + forme positive désigne : sujet/pronom + verbe + complément.
+Règle: Phrase à l’impératif présent + verbe transitif + forme négative désigne : sujet/pronom + ߕߍ߫ + verbe + complément.
+Règle: Phrase à l’impératif présent + verbe pronominal + forme positive désigne : sujet/pronom + ߖߘߍ߫ + verbe + complément.
+Règle: Phrase à l’impératif présent + verbe pronominal + forme négative désigne : sujet/pronom + ߞߊߣߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 à l’impératif présent (âge) : forme positive : sujet/pronom + ߦߋ߫ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߞߊߣߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 à l’impératif présent (nom) : forme positive : sujet/pronom + ߦߋ߫ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߞߊߣߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase à l’impératif passé + verbe transitif + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߦߋ߫ + verbe + complément.
+Règle: Phrase à l’impératif passé + verbe transitif + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߞߊߣߊ߬ + verbe + complément.
+Règle: Phrase à l’impératif passé + verbe pronominal + forme positive désigne : sujet/pronom + ߕߘߍ߫ + ߦߋ߫ + pronom réfléchi + verbe + complément.
+Règle: Phrase à l’impératif passé + verbe pronominal + forme négative désigne : sujet/pronom + ߕߘߍ߫ + ߞߊߣߊ߬ + pronom réfléchi + verbe + complément.
+Fait: Exception n°1 à l’impératif passé (âge) : forme positive : sujet/pronom + ߕߘߍ߫ + ߦߋ߫ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : sujet/pronom + ߕߘߍ߫ + ߞߊߣߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 à l’impératif passé (nom) : forme positive : sujet/pronom + ߕߘߍ߫ + ߦߋ߫ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߕߘߍ߫ + ߞߊߣߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase à l’infinitif présent + verbe transitif + forme positive désigne : ߞߊ߬ + complément + verbe.
+Règle: Phrase à l’infinitif présent + verbe transitif + forme négative désigne : ߡߊ߬ + complément + verbe.
+Règle: Phrase à l’infinitif présent + verbe pronominal + forme positive désigne : ߞߊ߬ + pronom réfléchi + complément + verbe.
+Règle: Phrase à l’infinitif présent + verbe pronominal + forme négative désigne : ߡߊ߬ + pronom réfléchi + complément + verbe.
+Fait: Exception n°1 à l’infinitif présent (âge) : forme positive : ߞߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫ ; forme négative : ߡߊ߬ + ߛߊ߲߬ + âge + ߓߐ߫.
+Fait: Exception n°2 à l’infinitif présent (nom) : forme positive : ߞߊ߬ + ߕߐ߮ + ߞߏ߫ + nom ; forme négative : ߡߊ߬ + ߕߐ߮ + ߞߏ߫ + nom.
+Règle: Phrase à l’infinitif passé + verbe transitif + forme positive désigne : ߞߊ߬ + verbe + ߕߘߍ߫.
+Règle: Phrase à l’infinitif passé + verbe transitif + forme négative désigne : ߡߊ߬ + verbe + ߕߘߍ߫.
+Règle: Phrase à l’infinitif passé + verbe pronominal + forme positive désigne : ߞߊ߬ + pronom réfléchi + verbe + ߕߘߍ߫.
+Règle: Phrase à l’infinitif passé + verbe pronominal + forme négative désigne : ߡߊ߬ + pronom réfléchi + verbe + ߕߘߍ߫.
+Fait: Exception n°1 à l’infinitif passé (âge) : forme positive : ߞߊ߬ + ߛߊ߲߬ + âge + ߕߘߍ߫ ; forme négative : ߡߊ߬ + ߛߊ߲߬ + âge + ߕߘߍ߫.
+Fait: Exception n°2 à l’infinitif passé (nom) : forme positive : ߞߊ߬ + ߕߐ߮ + ߕߘߍ߫ + ߞߏ߫ + nom ; forme négative : ߡߊ߬ + ߕߐ߮ + ߕߘߍ߫ + ߞߏ߫ + nom.
+Règle: Phrase au participe présent + verbe transitif + forme positive désigne : sujet/pronom + verbe + ߓߟߏߡߊ߬.
+Règle: Phrase au participe présent + verbe transitif + forme négative désigne : sujet/pronom + verbe + ߓߊߟߌߓߟߏߡߊ߬.
+Règle: Phrase au participe présent + verbe pronominal + forme positive désigne : sujet/pronom + ߖߘߍ߫ + verbe + ߓߟߏߡߊ߬.
+Règle: Phrase au participe présent + verbe pronominal + forme négative désigne : sujet/pronom + ߖߘߍ߫ + verbe + ߓߊߟߌߓߟߏߡߊ߬.
+Fait: Exception n°1 au participe présent (âge) : forme positive : sujet/pronom + ߛߊ߲߬ + âge + ߓߐ߫ + ߓߟߏߡߊ߬ ; forme négative : sujet/pronom + ߛߊ߲߬ + âge + ߓߐ߫ + ߓߊߟߌߓߟߏߡߊ߬.
+Fait: Exception n°2 au participe présent (nom) : forme positive : sujet/pronom + ߕߐ߮ + ߓߟߏߡߊ߬ + ߞߏ߫ + nom ; forme négative : sujet/pronom + ߕߐ߮ + ߓߊߟߌߓߟߏߡߊ߬ + ߞߏ߫+ nom.
+Règle: Phrase au participe passé + verbe transitif + forme positive désigne : ߞߊߕߙߍ߬ߕߍ߫ + sujet/pronom + ߦߋ߫ + verbe + ߓߟߏߡߊ߬.
+Règle: Phrase au participe passé + verbe transitif + forme négative désigne : ߞߊߕߙߍ߬ߕߍ߫ + sujet/pronom + ߕߍ߫ + verbe + ߓߟߏߡߊ߬.
+Règle: Phrase au participe passé + verbe pronominal + forme positive désigne : ߞߊߕߙߍ߬ߕߍ߫ + sujet/pronom + ߖߘߍ߬ + ߦߋ߫ + verbe + ߓߟߏߡߊ߬.
+Règle: Phrase au participe passé + verbe pronominal + forme négative désigne : ߞߊߕߙߍ߬ߕߍ߫ + sujet/pronom + ߖߘߍ߬ + ߕߍ߫ + verbe + ߓߟߏߡߊ߬.
+Fait: Exception n°1 au participe passé (âge) : forme positive : ߞߊߕߙߍ߬ߕߍ߫ + sujet/pronom + ߦߋ߫ + ߛߊ߲߬ + âge + ߓߐ߫ + ߓߟߏߡߊ߬ ; forme négative : ߞߊߕߙߍ߬ߕߍ߫ + sujet/pronom + ߕߍ߫ + ߛߊ߲߬ + âge + ߓߐ߫ + ߓߟߏߡߊ߬.
+Fait: Exception n°2 au participe passé (nom) : forme positive : ߞߊߕߙߍ߬ߕߍ߫ + sujet/pronom + ߦߋ߫ + ߕߐ߮ + ߞߏ߫ + ߓߟߏߡߊ߬ + nom ; forme négative : ߞߊߕߙߍ߬ߕߍ߫ + sujet/pronom + ߕߍ߫ + ߕߐ߮ + ߞߏ߫ + ߓߟߏߡߊ߬ + nom.
+Règle: Phrase au gérondif présent + verbe transitif + forme positive désigne : + ߞߊ߬ߡߊߛߐ߬ߘߐ߲߬ + sujet/pronom + ߦߋ߫ + verbe + ߘߐ߫.
+Règle: Phrase au gérondif présent + verbe transitif + forme négative désigne : ߞߊ߬ߡߊߛߐ߬ߘߐ߲߬+ sujet/pronom + ߕߍ߫ + verbe + ߘߐ߫.
+Règle: Phrase au gérondif présent + verbe pronominal + forme positive désigne : ߞߊ߬ߡߊߛߐ߬ߘߐ߲߬ + sujet/pronom + ߖߘߍ߫ + ߦߋ߫ + verbe + ߘߐ߫.
+Règle: Phrase au gérondif présent + verbe pronominal + forme négative désigne : ߞߊ߬ߡߊߛߐ߬ߘߐ߲߬ + sujet/pronom + ߖߘߍ߫ + ߕߍ߫ + verbe + ߘߐ߫.
+Fait: Exception n°1 au gérondif présent (âge) : forme positive : ߞߊ߬ߡߊߛߐ߬ߘߐ߲߬ + sujet/pronom + ߦߋ߫ + ߛߊ߲߬ + âge + ߓߐ߫ + ߘߐ߫ ; forme négative : ߞߊ߬ߡߊߛߐ߬ߘߐ߲߬ + sujet/pronom + ߕߍ߫ + ߛߊ߲߬ + âge + ߓߐ߫ + ߘߐ߫.
+Fait: Exception n°2 au gérondif présent (nom) : forme positive : ߞߊ߬ߡߊߛߐ߬ߘߐ߲߬ + sujet/pronom + ߦߋ߫ + ߕߐ߮ + nom + ߘߐ߫ ; forme négative : ߞߊ߬ߡߊߛߐ߬ߘߐ߲߬ + sujet/pronom + ߕߍ߫ + ߕߐ߮ + nom + ߘߐ߫.
+
+Règle: lé désigne ߟߋ߬.
+Règle: da lé désigne ߘߊ߫ ߟߋ߬.
+Règle: lu désigne ߟߎ߫.
+Règle: tèdè désigne ߕߘߍ߫.
+Règle: alu désigne ߊߟߎ߫.
+Règle: ko désigne ߞߏ߫.
+Règle: di désigne ߘߌ߫.
+Règle: kè désigne ߞߍ߫.
+Règle: nèn désigne ߣߍ߲.
+
+Fait: Toute phrase en français qui commence par « c’est » suivie d’un adjectif (ex : « c’est jolie » ou « c’est une jolie maison »), prendra la structure suivante en N’ko.
+
+Règle: Phrase commençant par « c’est » + adjectif + forme positive désigne : nom + adjectif + lé.
+Règle: Phrase commençant par « c’est » + adjectif sans nom désigne : ߊ + adjectif + ߟߋ߬.
+Règle: Phrase commençant par « c’est » + adjectif au passé simple désigne : nom + adjectif + ߘߊ߫.
+Règle: Phrase commençant par « c’est » + adjectif sans nom au passé simple désigne : ߊ + adjectif + ߘߊ߫.
+Règle: Phrase commençant par « c’est » + adjectif à l’imparfait désigne : nom + ߕߘߍ߫ + adjectif + lé.
+Règle: Phrase commençant par « c’est » + adjectif sans nom à l’imparfait désigne : ߊ + tèdè + adjectif.
+Règle: Phrase commençant par « c’est » + adjectif au conditionnel désigne : ko + nom + adjectif + lé.
+Règle: Phrase commençant par « c’est » + adjectif sans nom au conditionnel désigne : ko + ߊ + adjectif.
+Règle: Phrase commençant par « c’est » + adjectif au futur désigne : nom + ߘߌ߫ + adjectif + lé.
+Règle: Phrase commençant par « c’est » + adjectif sans nom au futur désigne : ߊ + di + adjectif.
+
+Fait: Toute phrase en français qui commence par « c’est » suivie d’un pronom ou nom (ex : « c’est ma mère » ou « c’est Sékou »), prendra la structure suivante en N’ko.
+
+Règle: Phrase commençant par « c’est » + pronom/nom + forme positive désigne : nom + lé.
+Règle: Phrase commençant par « c’est » + pronom/nom sans nom désigne : pronom + lé.
+Règle: Phrase commençant par « c’est » + pronom/nom au passé simple désigne : nom + lé + tèdè + da.
+Règle: Phrase commençant par « c’est » + pronom/nom sans nom au passé simple désigne : pronom + lé + tèdè + da.
+Règle: Phrase commençant par « c’est » + pronom/nom à l’imparfait désigne : nom + ߕߘߍ߫ + lé.
+Règle: Phrase commençant par « c’est » + pronom/nom sans nom à l’imparfait désigne : pronom + tèdè + lé.
+Règle: Phrase commençant par « c’est » + pronom/nom au conditionnel désigne : ko + nom + lé.
+Règle: Phrase commençant par « c’est » + pronom/nom sans nom au conditionnel désigne : ko + pronom + lé.
+Règle: Phrase commençant par « c’est » + pronom/nom au futur désigne : nom + ߘߌ߫ + kè + lé.
+Règle: Phrase commençant par « c’est » + pronom/nom sans nom au futur désigne : pronom + di + kè + lé.
+
+Fait: Toute phrase en français qui commence par « c’est » suivie d’un verbe (ex : « c’est vivifié » ou « c’est jus est secoué »), prendra la structure suivante en N’ko.
+
+Règle: Phrase commençant par « c’est » + verbe + forme positive désigne : nom + verbe + suffixe nèn.
+Règle: Phrase commençant par « c’est » + verbe sans nom désigne : ߊ + verbe + suffixe nèn.
+Règle: Phrase commençant par « c’est » + verbe au passé simple désigne : nom + tèdè + di + verbe.
+Règle: Phrase commençant par « c’est » + verbe sans nom au passé simple désigne : ߊ + tèdè + di + verbe.
+Règle: Phrase commençant par « c’est » + verbe à l’imparfait désigne : nom + verbe + ߕߘߍ߫ + lé.
+Règle: Phrase commençant par « c’est » + verbe sans nom à l’imparfait désigne : ߊ + tèdè + lé.
+Règle: Phrase commençant par « c’est » + verbe au conditionnel désigne : ko + nom + verbe + lé.
+Règle: Phrase commençant par « c’est » + verbe sans nom au conditionnel désigne : ko + ߊ + verbe + lé.
+Règle: Phrase commençant par « c’est » + verbe au futur désigne : nom + ߘߌ߫ + verbe + kè + lé.
+Règle: Phrase commençant par « c’est » + verbe sans nom au futur désigne : ߊ + di + verbe + kè + lé.
+
+
 
 <<<MOTS
+# Pronoms personnels toniques
+Moi = ߒߠߋ
+Toi = ߌߟߋ
+Lui = ߊ߬ߟߋ
+Elle = ߊ߬ߟߋ
+Nous = ߊ߲ߠߎ߫
+Nous = ߊ߲
+Nous = ߒ߬ߠߎ߫
+Nous = ߒ߬
+Vous = ߊߟߎ߫
+Vous = ߊߦߌ߫
+Eux = ߏ߬ ߟߎ߫
+Elles = ߏ߬ ߟߎ߫
 
+# Pronoms personnels réfléchis
+Me = ߒ
+Te = ߌ
+Se = ߊ߬
+Nous = ߊ߲ߠߎ߫
+Nous = ߊ߲
+Nous = ߒ߬ߠߎ߫
+Nous = ߒ߬
+Vous = ߊߟߎ߫
+Vous = ߊߦߌ߫
+Se = ߊ߬ߟߎ߫
+Se = ߊ߬ߦߌ߫
+
+# Pronoms compléments d’objet direct (COD)
+Me = ߒ
+Te = ߌ
+Le = ߊ߬
+La = ߊ߬
+Nous = ߊ߲ߠߎ߫
+Nous = ߊ߲
+Nous = ߒ߬ߠߎ߫
+Nous = ߒ߬
+Vous = ߊߟߎ߫
+Vous = ߊߦߌ߫
+Les = ߊ߬ߟߎ߫
+Les = ߊ߬ߦߌ߫
+
+# Pronoms compléments d’objet indirect (COI)
+Me = ߒ
+Te = ߌ
+Lui = ߏ߬
+Nous = ߊ߲ߠߎ߫
+Nous = ߊ߲
+Nous = ߒ߬ߠߎ߫
+Nous = ߒ߬
+Vous = ߊߟߎ߫
+Vous = ߊߦߌ߫
+Leur = ߊ߬ߟߎ߫
+Leur = ߊ߬ߦߌ߫
+
+# Pronoms possessifs
+Le mien = ߒ ߕߊ
+La mienne = ߒ ߕߊ
+Les miens = ߒ ߕߊ ߟߎ߫
+Les miennes = ߒ ߕߊ ߟߎ߫
+Le tien = ߌ ߕߊ
+La tienne = ߌ ߕߊ
+Les tiens = ߌ ߕߊ ߟߎ߫
+Les tiennes = ߌ ߕߊ ߟߎ߫
+Le sien = ߊ߬ ߕߊ
+La sienne = ߊ߬ ߕߊ
+Les siens = ߊ߬ ߕߊ ߟߎ߫
+Les siennes = ߊ߬ ߕߊ ߟߎ߫
+Le nôtre = ߊ߲ ߕߊ
+La nôtre = ߊ߲ ߕߊ
+Les nôtres = ߊ߲ ߕߊ ߟߎ߫
+Le vôtre = ߊߟߎ߫ ߕߊ
+La vôtre = ߊߟߎ߫ ߕߊ
+Les vôtres = ߊߟߎ߫ ߕߊ ߟߎ߫
+Le leur = ߏ߬ ߕߊ
+La leur = ߏ߬ ߕߊ
+Les leurs = ߏ߬ ߟߎ߫ ߕߊ ߟߎ߫
+
+# Pronoms démonstratifs
+Celui = ߡߍ߲
+Celle = ߡߍ߲
+Celui-ci = ߡߍ߲
+Celle-ci = ߡߍ߲
+Icelui = ߡߍ߲
+Icelle = ߡߍ߲
+Ceux = ߡߍ߲ ߠߎ߫
+Celles = ߡߍ߲ ߠߎ߫
+Ceux-ci = ߡߍ߲ ߠߎ߫
+Celles-ci = ߡߍ߲ ߠߎ߫
+Ceux-là = ߡߍ߲ ߠߎ߫
+Celles-là = ߡߍ߲ ߠߎ߫
+Iceux = ߡߍ߲ ߠߎ߫
+Icelles = ߡߍ߲ ߠߎ߫
+
+Ce = ߢߌ߲߬
+Ce = ߣߌ߲߬
+Ce = ߊ߬
+Ce = ߏ߬
+Cet = ߢߌ߲߬
+Cet = ߣߌ߲߬
+Cet = ߊ߬
+Cet = ߏ߬
+Cette = ߢߌ߲߬
+Cette = ߣߌ߲߬
+Cette = ߊ߬
+Cette = ߏ߬
+Ça = ߢߌ߲߬
+Ça = ߣߌ߲߬
+Ça = ߊ߬
+Ça = ߏ߬
+Cela = ߢߌ߲߬
+Cela = ߣߌ߲߬
+Cela = ߊ߬
+Cela = ߏ߬
+Ceci = ߢߌ߲߬
+Ceci = ߣߌ߲߬
+Ceci = ߊ߬
+Ceci = ߏ߬
+
+Ces = ߢߌ߲߬ ߠߎ߫
+Ces = ߣߌ߲߬ ߠߎ߫
+Ces = ߊ߬ߟߎ߫
+
+# Déterminants possessifs
+Ma = ߒ ߟߊ߫
+Mon = ߒ ߟߊ߫
+Mes = ߒ ߟߊ߫
+Ta = ߌ ߟߊ߫
+Ton = ߌ ߟߊ߫
+Tes = ߌ ߟߊ߫
+Sa = ߊ߬ ߟߊ߫
+Son = ߊ߬ ߟߊ߫
+Ses = ߊ߬ ߟߊ߫
+Notre = ߊ߲ ߠߊ߫
+Nos = ߊ߲ ߠߊ߫
+Votre = ߊߟߎ߫ ߟߊ߫
+Vos = ߊߟߎ߫ ߟߊ߫
+Leur = ߏ߬ ߟߎ߫ ߟߊ߫
+Leurs = ߏ߬ ߟߎ߫ ߟߊ߫
+Leur = ߊ߬ߟߎ߫ ߟߊ߫
+Leurs = ߊ߬ߟߎ߫ ߟߊ߫
+
+Ma = ߒ ߞߊ߫
+Mon = ߒ ߞߊ߫
+Mes = ߒ ߞߊ߫
+Ta = ߌ ߞߊ߫
+Ton = ߌ ߞߊ߫
+Tes = ߌ ߞߊ߫
+Sa = ߊ߬ ߞߊ߫
+Son = ߊ߬ ߞߊ߫
+Ses = ߊ߬ ߞߊ߫
+Notre = ߊ߲ ߞߊ߫
+Nos = ߊ߲ ߞߊ߫
+Votre = ߊߟߎ߫ ߞߊ߫
+Vos = ߊߟߎ߫ ߞߊ߫
+Leur = ߏ߬ ߟߎ߫ ߞߊ߫
+Leurs = ߏ߬ ߟߎ߫ ߞߊ߫
+Leur = ߊ߬ߟߎ߫ ߞߊ߫
+Leurs = ߊ߬ߟߎ߫ ߞߊ߫
+MOTS>>>
+
+<<<MOTS
+ɣ = ߊ߳
+ø = ߋ߳
+ü = ߎ߳
+bʱ = ߓ߭
+tˤ = ߕ߭
+z = ߖ߭
+ðˤ = ߖ߳
+ð = ߗ߭
+dˤ = ߘ߭
+ʁ = ߙ߭
+ʃ = ߛ߭
+θ = ߛ߳
+sˤ = ߛ߫
+g = ߜ߭
+k͡p = ߜ߳
+v = ߝ߭
+x = ߞ߭
+MOTS>>>
+
+<<<MOTS
+Chiffre = ߝߙߍߕߍ
+Nombre = ߦߙߌߞߊ
+MOTS>>>
+
+<<<MOTS
 0 = ߀
 1 = ߁
 2 = ߂
@@ -296,6 +766,4 @@ Règle: Le ߑ désigne aussi le yilidölödjantondé (ߦߟߌߘߟߐߖߊ߲-ߕߏ߲�
 100000 = ߁߀߀߀߀߀
 1000000 = ߁߀߀߀߀߀߀
 1000000000 = ߁߀߀߀߀߀߀߀߀߀
-
 MOTS>>>
-
