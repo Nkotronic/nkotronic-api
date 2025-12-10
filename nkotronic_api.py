@@ -1,4 +1,4 @@
-# nkotronic_api.py – Nkotronic v13 : RAG ultra-rapide SANS sklearn (zéro dépendance lourde)
+# nkotronic_api.py – Nkotronic v13-final : RAG qui marche même avec 10 Mo de manifeste
 import os
 import re
 import httpx
@@ -14,10 +14,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MANIFESTE_URL = "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/main/NKOTRONIC_KNOWLEDGE"
 MODEL = "gpt-4o-mini"
 EMBEDDING_MODEL = "text-embedding-ada-002"
-CHUNK_SIZE = 600      # un peu plus gros = encore plus précis
-TOP_K = 6             # 6 meilleurs morceaux
+CHUNK_SIZE = 600
+TOP_K = 7
+BATCH_SIZE = 1000  # < 300k tokens garanti
 
-app = FastAPI(title="Nkotronic v13 — Mémoire totale + réponses instantanées")
+app = FastAPI(title="Nkotronic v13-final – Mémoire totale + réponses en 1 seconde")
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,8 +35,10 @@ embeddings = None
 def split_into_chunks(text, size=CHUNK_SIZE):
     return [text[i:i+size] for i in range(0, len(text), size)]
 
-def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
-    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+async def embed_batch(batch):
+    """Embed un petit batch en une seule requête"""
+    resp = client.embeddings.create(input=batch, model=EMBEDDING_MODEL)
+    return [e.embedding for e in resp.data]
 
 async def charger_rag():
     global chunks, embeddings
@@ -45,13 +48,18 @@ async def charger_rag():
         manifeste = r.text.strip()
     
     chunks = split_into_chunks(manifeste)
-    print(f"{len(chunks)} chunks créés → embedding en cours…")
+    print(f"{len(chunks)} chunks créés → embedding par batch de {BATCH_SIZE}…")
     
-    # Batch embedding (rapide et pas cher)
-    resp = client.embeddings.create(input=chunks, model=EMBEDDING_MODEL)
-    embeddings = np.array([e.embedding for e in resp.data])
+    all_embeddings = []
+    # on fait les embeddings en plusieurs petites requêtes
+    for i in range(0, len(chunks), BATCH_SIZE):
+        batch = chunks[i:i+BATCH_SIZE]
+        batch_emb = await run_in_threadpool(embed_batch, batch)
+        all_embeddings.extend(batch_emb)
+        print(f"  → batch {i//BATCH_SIZE + 1}/{(len(chunks)-1)//BATCH_SIZE + 1} terminé")
     
-    print(f"RAG prêt : {len(chunks)} chunks → Nkotronic v13 live & ultra-rapide")
+    embeddings = np.array(all_embeddings)
+    print(f"RAG 100% chargé : {len(chunks)} chunks prêts – Nkotronic v13-final live")
 
 @app.on_event("startup")
 async def startup():
@@ -63,6 +71,9 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
 
+def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-8)
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     question = req.message.strip()
@@ -70,14 +81,14 @@ async def chat(req: ChatRequest):
 
     mots_nko = ["nko","n'ko","ߒߞߏ","kanté","solomana","fodé","alphabet","écriture",
                 "mandingue","manden","bamanankan","maninka","dyula","grammaire"]
-    est_nko = any(m in q_lower for m in mots_nko) or " n'ko" in f" {q_lower}" or " nko" in f" {q_lower}"
+    est_nko = any(m in q_lower for m in mots_nko) or " nko" in f" {q_lower}"
 
-    if est_nko:
-        # Embedding de la question
+    if est_nko and embeddings is not None:
+        # Embedding question
         q_emb = client.embeddings.create(input=[question], model=EMBEDDING_MODEL).data[0].embedding
         q_vec = np.array(q_emb)
 
-        # Recherche des TOP_K chunks les plus similaires (cosine manuel)
+        # Top K
         similarities = [cosine_sim(q_vec, emb) for emb in embeddings]
         top_indices = np.argsort(similarities)[-TOP_K:][::-1]
         context = "\n\n".join(chunks[i] for i in top_indices)
@@ -85,31 +96,25 @@ async def chat(req: ChatRequest):
         prompt = f"""
 Tu es Nkotronic, expert absolu en langue et écriture N’ko.
 
-Voici les passages les plus pertinents des meilleurs manuels de références sur le N’ko :
+Passages les plus pertinents des meilleurs manuels de références :
 {context}
 
 Question : {question}
 
 RÈGLES STRICTES :
-1. Réponds UNIQUEMENT avec les infos ci-dessus
+1. Réponds UNIQUEMENT avec ces passages
 2. Combine tous les faits pertinents
-3. Mets en **gras** tous les termes en N’ko
-4. Si l’info n’est pas dans ces passages → réponds exactement :
-   "Cette information précise n’existe pas encore dans les meilleurs manuels de références sur le N’ko."
-5. Sois clair, pédagogique et chaleureux
-6. Jamais le mot "Manifeste"
+3. **Gras** sur tout terme en N’ko
+4. Si l’info manque → "Cette information précise n’existe pas encore dans les meilleurs manuels de références sur le N’ko."
+5. Sois clair, chaleureux, exhaustif
 
 Réponds maintenant :
 """
         temperature = 0.0
     else:
-        prompt = f"""
-Tu es Nkotronic, un compagnon cultivé et chaleureux.
-Cette question ne parle pas du N’ko → tu peux répondre librement avec humour et profondeur.
-
+        prompt = f"""Tu es Nkotronic, compagnon cultivé et chaleureux.
 Question : {question}
-Réponds comme un humain sincère :
-"""
+Réponds librement avec humour et profondeur."""
         temperature = 0.7
 
     completion = await run_in_threadpool(
@@ -121,11 +126,11 @@ Réponds comme un humain sincère :
     )
 
     reponse = completion.choices[0].message.content.strip()
-    reponse = reponse.replace("**", "")  # nettoyage propre
+    reponse = reponse.replace("**", "")
 
     return ChatResponse(response=reponse)
 
 @app.post("/reload")
 async def reload():
     await charger_rag()
-    return {"status": "RAG rechargé – mémoire 100% à jour"}
+    return {"status": "RAG rechargé – mémoire totale à jour"}
