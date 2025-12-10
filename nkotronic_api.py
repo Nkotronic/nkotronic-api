@@ -1,4 +1,4 @@
-# nkotronic_api.py – Nkotronic v13-final : RAG qui marche même avec 10 Mo de manifeste
+# nkotronic_api.py – Nkotronic v13-OK : RAG 100% fonctionnel (10 décembre 2025)
 import os
 import re
 import httpx
@@ -16,9 +16,9 @@ MODEL = "gpt-4o-mini"
 EMBEDDING_MODEL = "text-embedding-ada-002"
 CHUNK_SIZE = 600
 TOP_K = 7
-BATCH_SIZE = 1000  # < 300k tokens garanti
+BATCH_SIZE = 800  # sûr sous 300k tokens
 
-app = FastAPI(title="Nkotronic v13-final – Mémoire totale + réponses en 1 seconde")
+app = FastAPI(title="Nkotronic v13 – Mémoire totale + réponses instantanées")
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,7 +36,6 @@ def split_into_chunks(text, size=CHUNK_SIZE):
     return [text[i:i+size] for i in range(0, len(text), size)]
 
 async def embed_batch(batch):
-    """Embed un petit batch en une seule requête"""
     resp = client.embeddings.create(input=batch, model=EMBEDDING_MODEL)
     return [e.embedding for e in resp.data]
 
@@ -51,15 +50,15 @@ async def charger_rag():
     print(f"{len(chunks)} chunks créés → embedding par batch de {BATCH_SIZE}…")
     
     all_embeddings = []
-    # on fait les embeddings en plusieurs petites requêtes
     for i in range(0, len(chunks), BATCH_SIZE):
         batch = chunks[i:i+BATCH_SIZE]
-        batch_emb = await run_in_threadpool(embed_batch, batch)
+        # L'AWAIT ÉTAIT MANQUANT ICI → CORRIGÉ
+        batch_emb = await embed_batch(batch)
         all_embeddings.extend(batch_emb)
-        print(f"  → batch {i//BATCH_SIZE + 1}/{(len(chunks)-1)//BATCH_SIZE + 1} terminé")
+        print(f"  → batch {i//BATCH_SIZE + 1} terminé")
     
     embeddings = np.array(all_embeddings)
-    print(f"RAG 100% chargé : {len(chunks)} chunks prêts – Nkotronic v13-final live")
+    print(f"RAG chargé à 100% : {len(chunks)} chunks prêts – Nkotronic v13 live !")
 
 @app.on_event("startup")
 async def startup():
@@ -79,16 +78,14 @@ async def chat(req: ChatRequest):
     question = req.message.strip()
     q_lower = question.lower()
 
-    mots_nko = ["nko","n'ko","ߒߞߏ","kanté","solomana","fodé","alphabet","écriture",
+    mots_nko = ["nko","n'ko","nk","ߒߞߏ","kanté","solomana","fodé","alphabet","écriture",
                 "mandingue","manden","bamanankan","maninka","dyula","grammaire"]
     est_nko = any(m in q_lower for m in mots_nko) or " nko" in f" {q_lower}"
 
     if est_nko and embeddings is not None:
-        # Embedding question
         q_emb = client.embeddings.create(input=[question], model=EMBEDDING_MODEL).data[0].embedding
         q_vec = np.array(q_emb)
 
-        # Top K
         similarities = [cosine_sim(q_vec, emb) for emb in embeddings]
         top_indices = np.argsort(similarities)[-TOP_K:][::-1]
         context = "\n\n".join(chunks[i] for i in top_indices)
@@ -104,7 +101,7 @@ Question : {question}
 RÈGLES STRICTES :
 1. Réponds UNIQUEMENT avec ces passages
 2. Combine tous les faits pertinents
-3. **Gras** sur tout terme en N’ko
+3. Mets en **gras** tous les termes en N’ko
 4. Si l’info manque → "Cette information précise n’existe pas encore dans les meilleurs manuels de références sur le N’ko."
 5. Sois clair, chaleureux, exhaustif
 
@@ -112,7 +109,7 @@ Réponds maintenant :
 """
         temperature = 0.0
     else:
-        prompt = f"""Tu es Nkotronic, compagnon cultivé et chaleureux.
+        prompt = f"""Tu es Nkotronic, compagnon chaleureux.
 Question : {question}
 Réponds librement avec humour et profondeur."""
         temperature = 0.7
