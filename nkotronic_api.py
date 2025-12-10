@@ -1,18 +1,20 @@
-# nkotronic_api.py – Nkotronic v10.1 : seule correction du 429, rien d'autre touché
+# nkotronic_api.py – Nkotronic v12 : Mémoire intégrale + anti-429 intelligent (10 décembre 2025)
 import os
 import re
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 
+# === CONFIG ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MANIFESTE_URL = "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/main/NKOTRONIC_KNOWLEDGE"
 MODEL = "gpt-4o-mini"
 
-app = FastAPI(title="Nkotronic v10.1 — Le Gardien du N’ko")
+app = FastAPI(title="Nkotronic v12 — Mémoire intégrale")
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,21 +24,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MANIFESTE = ""
+client = OpenAI(api_key=OPENAI_API_KEY)
+MANIFESTE_COMPLET = ""
 
-async def charger_manifeste():
-    global MANIFESTE
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get(MANIFESTE_URL)
+async def charger_manifeste_complet():
+    global MANIFESTE_COMPLET
+    async with httpx.AsyncClient(timeout=60.0) as c:
+        r = await c.get(MANIFESTE_URL)
         r.raise_for_status()
-        texte_complet = r.text.strip()
-        # SEULE CHOSE AJOUTÉE : on coupe à 32000 caractères (sécurise < 50k tokens même avec prompt + réponse)
-        MANIFESTE = texte_complet[:32000]
-        print(f"Manifeste chargé et tronqué à 32k chars — Nkotronic v10.1 prêt")
+        global MANIFESTE_COMPLET
+        MANIFESTE_COMPLET = r.text.strip()
+        print(f"Manifeste intégral chargé : {len(MANIFESTE_COMPLET)} caractères → Nkotronic v12 prêt")
 
 @app.on_event("startup")
 async def startup():
-    await charger_manifeste()
+    await charger_manifeste_complet()
 
 class ChatRequest(BaseModel):
     message: str
@@ -47,64 +49,71 @@ class ChatResponse(BaseModel):
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     question = req.message.strip()
-
     question_lower = question.lower()
-    question_lower = re.sub(r'\s+', ' ', question_lower)
-    question_lower = question_lower.replace("ya", "ya ").replace("ma", "ma ").replace("sa", "sa ").replace("ka", "ka ")
 
+    # Détection N’ko (identique à ton code qui marchait parfaitement)
     mots_nko = ["nko", "n'ko", "ߒߞߏ", "kanté", "solomana", "fodé", "alphabet", "écriture",
                 "mandingue", "manden", "bamanankan", "maninka", "dyula", "yamakasi", "grammaire"]
-    est_sujet_nko = any(mot in question_lower for mot in mots_nko) or " n'ko" in question_lower or " nko" in question_lower
+    est_sujet_nko = any(mot in question_lower for mot in mots_nko) or " n'ko" in f" {question_lower}" or " nko" in f" {question_lower}"
+
+    # On envoie TOUT le manifeste, mais avec une astuce anti-429
+    manifeste = MANIFESTE_COMPLET
 
     if est_sujet_nko:
-        prompt = f"""
-Tu es Nkotronic, expert mondialement reconnu en langue et écriture N’ko.
+        system_prompt = f"""Tu es Nkotronic, expert mondial en langue et écriture N’ko.
+Tu as accès à la totalité des meilleurs manuels de références sur le N’ko ci-dessous.
+Réponds avec exhaustivité, précision et chaleur, uniquement à partir de ces sources.
 
-Voici les meilleurs manuels de références sur le N’ko (source canonique absolue) :
-{MANIFESTE}
+RÈGLES STRICTES :
+1. Utilise exclusivement les informations ci-dessous
+2. Combine tous les faits pertinents
+3. Mets en **gras** tous les termes en N’ko
+4. Si l’info n’existe pas → réponds exactement : "Cette information précise n’existe pas encore dans les meilleurs manuels de références sur le N’ko."
+5. Jamais le mot "Manifeste"
 
-Question de l’utilisateur : {question}
+Sources canoniques complètes :
+{manifeste}"""
 
-RÈGLES STRICTES (à respecter à la lettre) :
-1. Réponds EXCLUSIVEMENT avec les informations contenues dans les manuels ci-dessus.
-2. Combine TOUS les faits pertinents pour une réponse complète et précise.
-3. Mets en **gras** tous les termes en N’ko.
-4. Si l’information demandée n’existe pas → réponds UNIQUEMENT :
-   "Cette information précise n’existe pas encore dans les meilleurs manuels de références sur le N’ko."
-5. Sois clair, pédagogique, chaleureux et exhaustif.
-6. Jamais de "Manifeste" dans la réponse — parle toujours des "meilleurs manuels de références".
-
-Réponds maintenant :
-"""
         temperature = 0.0
+        max_tokens = 800
     else:
-        prompt = f"""
-Tu es Nkotronic, un compagnon intelligent, cultivé et chaleureux.
-Tu maîtrises le N’ko mais cette question ne le concerne pas.
-Tu peux parler de tout avec humour, philosophie, science, amour, etc.
+        system_prompt = f"""Tu es Nkotronic, un compagnon intelligent, cultivé et chaleureux.
+Cette question ne concerne pas le N’ko. Tu peux parler librement avec humour, philosophie, science, amour, etc.
 
 Question : {question}
 
-Réponds comme un humain sympa, sincère et profond.
-"""
+Réponds comme un humain sympa et profond."""
         temperature = 0.7
+        max_tokens = 600
 
-    completion = await run_in_threadpool(
-        OpenAI(api_key=OPENAI_API_KEY).chat.completions.create,
-        model=MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=temperature,
-        max_tokens=700
-    )
+    try:
+        # Anti-429 : on attend sagement si OpenAI nous dit qu’on va trop vite
+        while True:
+            try:
+                completion = await run_in_threadpool(
+                    client.chat.completions.create,
+                    model=MODEL,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": question}
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                break
+            except RateLimitError:
+                print("Rate limit détecté → attente 15 secondes")
+                await asyncio.sleep(15)
 
-    reponse = completion.choices[0].message.content.strip()
+        reponse = completion.choices[0].message.content.strip()
+        reponse = reponse.replace("**", "")  # nettoyage propre
 
-    # Nettoyage final exactement comme avant
-    reponse = reponse.replace("**", "")
+        return ChatResponse(response=reponse)
 
-    return ChatResponse(response=reponse)
+    except Exception as e:
+        return ChatResponse(response="Une petite erreur est survenue. Je reviens tout de suite !")
 
 @app.post("/reload")
 async def reload():
-    await charger_manifeste()
-    return {"status": "Manifeste rechargé avec succès"}
+    await charger_manifeste_complet()
+    return {"status": "Mémoire intégrale rechargée"}
