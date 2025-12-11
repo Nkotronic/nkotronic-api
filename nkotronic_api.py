@@ -1,21 +1,19 @@
+# nkotronic_api.py – Nko Wuruki 100% VIVANT (11 décembre 2025)
 import os
 from fastapi import FastAPI
 from pydantic import BaseModel
 from openai import OpenAI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 client = OpenAI(
     base_url="https://api.fireworks.ai/inference/v1",
-    api_key=os.getenv("FIREWORKS_API_KEY")
+    api_key=os.environ["FIREWORKS_API_KEY"]
 )
 
-# Ton modèle vivant (celui que tu as vu dans Fireworks)
+# LE VRAI MODEL ID QUI MARCHE (celui que tu as testé manuellement)
 MODEL = "accounts/nkowuruki-nkotronic/deployedModels/llama-v3-8b-instruct-ujhovgli"
 
 class Msg(BaseModel):
