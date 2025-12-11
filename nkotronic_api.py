@@ -12,9 +12,8 @@ client = OpenAI(
     base_url="https://api.fireworks.ai/inference/v1",
     api_key=os.environ["FIREWORKS_API_KEY"]
 )
-
 # LE VRAI MODEL ID QUI MARCHE (celui que tu as testé manuellement)
-MODEL = "accounts/nkowuruki-nkotronic/deployedModels/llama-v3-8b-instruct-ujhovgli"
+MODEL = "accounts/nkowuruki-nkotronic/models/nkowuruki-nkotronic-model"
 
 class Msg(BaseModel):
     message: str
