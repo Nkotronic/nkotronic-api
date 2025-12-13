@@ -129,9 +129,7 @@ async def startup_event():
 # CHARGEMENT DU PROMPT SYSTÈME COMPLET (864 lignes)
 # ═══════════════════════════════════════════════════════════
 
-# Charger depuis le même dossier que le script
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SYSTEM_PROMPT_PATH = os.path.join(SCRIPT_DIR, "nkotronic_prompt.txt")
+SYSTEM_PROMPT_PATH = "/mnt/user-data/uploads/Tu_es_Nkotronic__l_IA__Tu_es_Nkotro.txt"
 
 try:
     with open(SYSTEM_PROMPT_PATH, 'r', encoding='utf-8') as f:
@@ -139,16 +137,13 @@ try:
     print(f"✅ Prompt système chargé: {len(NKOTRONIC_COMPLETE_GRAMMAR)} caractères")
 except Exception as e:
     print(f"❌ ERREUR: Impossible de charger le prompt système: {e}")
-    print(f"📂 Chemin recherché: {SYSTEM_PROMPT_PATH}")
-    # Prompt par défaut si fichier absent
-    NKOTRONIC_COMPLETE_GRAMMAR = """Tu es Nkotronic, l'assistant IA expert en N'ko. 
-Tu es bienveillant, précis et pédagogue. Tu maîtrises parfaitement le N'ko."""
+    NKOTRONIC_COMPLETE_GRAMMAR = ""
 
 # ═══════════════════════════════════════════════════════════
 # CHARGEMENT DU LEXIQUE DEPUIS GITHUB
 # ═══════════════════════════════════════════════════════════
 
-GITHUB_LEXIQUE_URL = "https://github.com/Nkotronic/nkotronic-api/blob/main/NKOTRONIC_KNOWLEDGE"
+GITHUB_LEXIQUE_URL = "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/main/vocab_fr_nko.txt"
 LEXIQUE_CACHE = None
 
 async def load_lexique(force_reload: bool = False):
