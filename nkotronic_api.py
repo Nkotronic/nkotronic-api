@@ -10,10 +10,12 @@
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import openai
 import os
 import httpx
+import json
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 import asyncio
@@ -509,6 +511,104 @@ async def chat(request: ChatRequest):
     except Exception as e:
         print(f"❌ Erreur inattendue: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+# ═══════════════════════════════════════════════════════════
+# ENDPOINT STREAMING SSE - Affichage progressif temps réel
+# ═══════════════════════════════════════════════════════════
+
+from fastapi.responses import StreamingResponse
+import json
+
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """
+    Endpoint de streaming SSE pour affichage progressif (lettre par lettre)
+    
+    FONCTIONNALITÉS:
+    ✅ Streaming temps réel (Server-Sent Events)
+    ✅ Affichage progressif comme ChatGPT/Claude
+    ✅ Gestion des sessions identique à /chat
+    ✅ Prompt Caching activé
+    """
+    
+    async def generate():
+        try:
+            # Vérifier la clé API
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                yield f"data: {json.dumps({'error': 'OPENAI_API_KEY not configured'})}\n\n"
+                return
+            
+            # Récupérer la session
+            session = get_session(request.session_id)
+            
+            # Construire le contexte complet
+            full_context = await build_full_context()
+            
+            # Message système avec cache
+            system_message = {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": full_context,
+                        "cache_control": {"type": "ephemeral"}
+                    }
+                ]
+            }
+            
+            # Préparer les messages
+            messages = [system_message]
+            
+            # Historique de session
+            for msg in session.messages:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            # Message actuel
+            messages.append({"role": "user", "content": request.message})
+            
+            # Vérifier le modèle
+            supported_models = ["gpt-4o", "gpt-4o-mini"]
+            if request.model not in supported_models:
+                request.model = "gpt-4o"
+            
+            # OpenAI Streaming
+            client = openai.OpenAI(api_key=api_key)
+            
+            stream = client.chat.completions.create(
+                model=request.model,
+                messages=messages,
+                temperature=request.temperature,
+                max_tokens=request.max_tokens,
+                store=True,
+                stream=True  # ✅ STREAMING ACTIVÉ
+            )
+            
+            full_response = ""
+            
+            # Streamer les chunks
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_response += content
+                    
+                    # Envoyer chunk au frontend
+                    yield f"data: {json.dumps({'content': content})}\n\n"
+            
+            # Sauvegarder dans la session
+            add_message_to_session(request.session_id, "user", request.message)
+            add_message_to_session(request.session_id, "assistant", full_response)
+            
+            # Signal de fin
+            yield f"data: {json.dumps({'done': True, 'session_id': request.session_id, 'messages_in_session': len(session.messages)})}\n\n"
+            
+            print(f"✅ Session {request.session_id} - Streaming terminé ({len(full_response)} chars)")
+            
+        except Exception as e:
+            print(f"❌ Erreur streaming: {str(e)}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+    
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 # ═══════════════════════════════════════════════════════════
 # ENDPOINTS DE GESTION DES SESSIONS
