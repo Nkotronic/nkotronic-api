@@ -1,10 +1,11 @@
 """
 ╔══════════════════════════════════════════════════════════════╗
-║  NKOTRONIC BACKEND - Version 3.0 MEMORY SAFE                ║
+║  NKOTRONIC BACKEND - Version 3.0 MEMORY SAFE + GITHUB       ║
 ║  ✅ Protection complète contre le Memory Leak                ║
 ║  ✅ Gestion des sessions avec TTL                            ║
 ║  ✅ Cleanup automatique                                      ║
 ║  ✅ Prompt Caching OpenAI                                    ║
+║  ✅ Chargement depuis GitHub                                 ║
 ╚══════════════════════════════════════════════════════════════╝
 """
 
@@ -21,7 +22,7 @@ from datetime import datetime, timedelta
 import asyncio
 from collections import OrderedDict
 
-app = FastAPI(title="Nkotronic API", version="3.0.0-MEMORY-SAFE")
+app = FastAPI(title="Nkotronic API", version="3.0.0-MEMORY-SAFE-GITHUB")
 
 # CORS pour permettre les requêtes depuis le frontend
 app.add_middleware(
@@ -48,82 +49,76 @@ SESSION_TTL_HOURS = 24  # Durée de vie d'une session (24h)
 MAX_MESSAGES_PER_SESSION = 20  # Garder seulement les 20 derniers messages
 CLEANUP_INTERVAL_MINUTES = 30  # Nettoyer toutes les 30 minutes
 
-# Stockage des sessions en mémoire (OrderedDict pour LRU)
-sessions_store: OrderedDict[str, SessionData] = OrderedDict()
+# Stockage des sessions (OrderedDict pour FIFO)
+sessions: OrderedDict[str, SessionData] = OrderedDict()
 
 def get_session(session_id: str) -> SessionData:
     """Récupère ou crée une session"""
-    now = datetime.utcnow()
+    now = datetime.now()
     
-    if session_id in sessions_store:
-        # Session existe, mettre à jour l'activité
-        session = sessions_store[session_id]
+    if session_id in sessions:
+        session = sessions[session_id]
         session.last_activity = now
-        # Déplacer à la fin (LRU)
-        sessions_store.move_to_end(session_id)
+        # Déplacer en fin (LRU)
+        sessions.move_to_end(session_id)
         return session
-    else:
-        # Nouvelle session
-        # Vérifier la limite de sessions
-        if len(sessions_store) >= MAX_SESSIONS:
-            # Supprimer la plus ancienne (FIFO)
-            oldest_id = next(iter(sessions_store))
-            del sessions_store[oldest_id]
-            print(f"🗑️  Session {oldest_id} supprimée (limite atteinte)")
-        
-        # Créer nouvelle session
-        session = SessionData(
-            messages=[],
-            created_at=now,
-            last_activity=now
-        )
-        sessions_store[session_id] = session
-        print(f"✨ Nouvelle session créée: {session_id}")
-        return session
+    
+    # Créer nouvelle session
+    session = SessionData(
+        messages=[],
+        created_at=now,
+        last_activity=now
+    )
+    
+    sessions[session_id] = session
+    
+    # Si trop de sessions, supprimer les plus anciennes
+    while len(sessions) > MAX_SESSIONS:
+        oldest_id = next(iter(sessions))
+        del sessions[oldest_id]
+        print(f"🗑️  Session {oldest_id} supprimée (limite atteinte)")
+    
+    return session
 
 def add_message_to_session(session_id: str, role: str, content: str):
     """Ajoute un message à la session avec limite"""
     session = get_session(session_id)
-    
-    # Ajouter le nouveau message
     session.messages.append({"role": role, "content": content})
     
-    # Limiter à MAX_MESSAGES_PER_SESSION
+    # Garder seulement les N derniers messages
     if len(session.messages) > MAX_MESSAGES_PER_SESSION:
-        # Garder seulement les N derniers messages
         session.messages = session.messages[-MAX_MESSAGES_PER_SESSION:]
-        print(f"✂️  Session {session_id} tronquée à {MAX_MESSAGES_PER_SESSION} messages")
+        print(f"✂️  Session {session_id}: Limité à {MAX_MESSAGES_PER_SESSION} messages")
 
-def cleanup_expired_sessions():
+def cleanup_old_sessions():
     """Nettoie les sessions expirées"""
-    now = datetime.utcnow()
-    cutoff = now - timedelta(hours=SESSION_TTL_HOURS)
+    now = datetime.now()
+    expired_threshold = now - timedelta(hours=SESSION_TTL_HOURS)
     
-    expired_ids = []
-    for session_id, session in sessions_store.items():
-        if session.last_activity < cutoff:
-            expired_ids.append(session_id)
+    expired_sessions = [
+        sid for sid, session in sessions.items()
+        if session.last_activity < expired_threshold
+    ]
     
-    for session_id in expired_ids:
-        del sessions_store[session_id]
+    for sid in expired_sessions:
+        del sessions[sid]
     
-    if expired_ids:
-        print(f"🧹 Cleanup: {len(expired_ids)} sessions expirées supprimées")
-    
-    print(f"📊 Sessions actives: {len(sessions_store)}/{MAX_SESSIONS}")
+    if expired_sessions:
+        print(f"🧹 Nettoyage: {len(expired_sessions)} sessions expirées supprimées")
 
-# Tâche de fond pour le cleanup automatique
-async def periodic_cleanup():
-    """Nettoie périodiquement les sessions expirées"""
+# Nettoyage automatique en arrière-plan
+async def auto_cleanup():
+    """Tâche de nettoyage périodique"""
     while True:
         await asyncio.sleep(CLEANUP_INTERVAL_MINUTES * 60)
-        cleanup_expired_sessions()
+        cleanup_old_sessions()
 
 @app.on_event("startup")
 async def startup_event():
-    """Démarre le cleanup automatique au démarrage"""
-    asyncio.create_task(periodic_cleanup())
-    print(f"🤖 Cleanup automatique démarré (toutes les {CLEANUP_INTERVAL_MINUTES} min)")
+    """Démarre le nettoyage automatique au démarrage"""
+    asyncio.create_task(auto_cleanup())
+    print(f"🚀 Nkotronic API v3.0 démarrée")
+    print(f"📊 Config: Max {MAX_SESSIONS} sessions, TTL {SESSION_TTL_HOURS}h, Cleanup {CLEANUP_INTERVAL_MINUTES}min")
 
 # ═══════════════════════════════════════════════════════════
 # CHARGEMENT DU CONTEXTE COMPLET DEPUIS GITHUB
@@ -158,16 +153,12 @@ Tu es bienveillant, précis et pédagogue. Tu maîtrises parfaitement le N'ko.
 # MODÈLES PYDANTIC
 # ═══════════════════════════════════════════════════════════
 
-class Message(BaseModel):
-    role: str
-    content: str
-
 class ChatRequest(BaseModel):
     message: str
-    session_id: str = "default"  # Identifiant de session
+    session_id: str = "default"
     model: str = "gpt-4o"
-    temperature: float = 0.3
-    max_tokens: int = 4096
+    temperature: float = 0.7
+    max_tokens: int = 2000
 
 class ChatResponse(BaseModel):
     response: str
@@ -199,6 +190,7 @@ async def chat(request: ChatRequest):
     ✅ Cleanup automatique toutes les 30 min
     ✅ Protection contre memory leak
     ✅ Prompt Caching OpenAI (50-90% réduction coûts)
+    ✅ Chargement depuis GitHub
     """
     try:
         # Vérifier que la clé API OpenAI est configurée
@@ -297,9 +289,6 @@ async def chat(request: ChatRequest):
 # ENDPOINT STREAMING SSE - Affichage progressif temps réel
 # ═══════════════════════════════════════════════════════════
 
-from fastapi.responses import StreamingResponse
-import json
-
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     """
@@ -310,6 +299,7 @@ async def chat_stream(request: ChatRequest):
     ✅ Affichage progressif comme ChatGPT/Claude
     ✅ Gestion des sessions identique à /chat
     ✅ Prompt Caching activé
+    ✅ Chargement depuis GitHub
     """
     
     async def generate():
@@ -392,138 +382,82 @@ async def chat_stream(request: ChatRequest):
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 # ═══════════════════════════════════════════════════════════
-# ENDPOINTS DE GESTION DES SESSIONS
-# ═══════════════════════════════════════════════════════════
-
-@app.get("/sessions/{session_id}")
-async def get_session_info(session_id: str):
-    """Récupère les informations d'une session"""
-    if session_id not in sessions_store:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session = sessions_store[session_id]
-    return {
-        "session_id": session_id,
-        "messages_count": len(session.messages),
-        "created_at": session.created_at.isoformat(),
-        "last_activity": session.last_activity.isoformat(),
-        "messages": session.messages
-    }
-
-@app.delete("/sessions/{session_id}")
-async def delete_session(session_id: str):
-    """Supprime une session"""
-    if session_id in sessions_store:
-        del sessions_store[session_id]
-        return {"status": "deleted", "session_id": session_id}
-    else:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-@app.post("/cleanup")
-async def manual_cleanup():
-    """Force le cleanup manuel des sessions expirées"""
-    cleanup_expired_sessions()
-    return {
-        "status": "cleanup completed",
-        "active_sessions": len(sessions_store)
-    }
-
-@app.get("/sessions")
-async def list_sessions():
-    """Liste toutes les sessions actives"""
-    return {
-        "total_sessions": len(sessions_store),
-        "max_sessions": MAX_SESSIONS,
-        "sessions": [
-            {
-                "session_id": sid,
-                "messages_count": len(session.messages),
-                "last_activity": session.last_activity.isoformat()
-            }
-            for sid, session in sessions_store.items()
-        ]
-    }
-
-# ═══════════════════════════════════════════════════════════
 # ENDPOINTS UTILITAIRES
 # ═══════════════════════════════════════════════════════════
 
+@app.get("/")
+async def root():
+    """Page d'accueil avec informations sur l'API"""
+    return {
+        "name": "Nkotronic API",
+        "version": "3.0.0-MEMORY-SAFE-GITHUB",
+        "status": "running",
+        "features": [
+            "Session management with TTL",
+            "Auto cleanup every 30min",
+            "20 messages per session limit",
+            "OpenAI Prompt Caching",
+            "SSE Streaming support",
+            "GitHub knowledge loading"
+        ],
+        "endpoints": {
+            "POST /chat": "Standard chat endpoint",
+            "POST /chat/stream": "Streaming chat endpoint (SSE)",
+            "GET /health": "Health check",
+            "GET /stats": "Statistics",
+            "POST /warmup": "Warmup endpoint"
+        }
+    }
+
 @app.get("/health")
 async def health():
-    """Vérifier l'état du service"""
+    """Endpoint de santé pour warmup Render"""
     return {
         "status": "healthy",
-        "version": "3.0.0-MEMORY-SAFE",
-        "grammar_loaded": len(NKOTRONIC_COMPLETE_GRAMMAR) > 0,
-        "grammar_size": len(NKOTRONIC_COMPLETE_GRAMMAR),
-        "lexique_cached": LEXIQUE_CACHE is not None,
-        "active_sessions": len(sessions_store),
+        "active_sessions": len(sessions),
+        "knowledge_loaded": KNOWLEDGE_CACHE is not None,
+        "knowledge_size": len(KNOWLEDGE_CACHE) if KNOWLEDGE_CACHE else 0
+    }
+
+@app.get("/stats")
+async def stats():
+    """Statistiques des sessions"""
+    now = datetime.now()
+    recent_threshold = now - timedelta(minutes=5)
+    
+    recent_sessions = sum(
+        1 for session in sessions.values()
+        if session.last_activity > recent_threshold
+    )
+    
+    return {
+        "total_sessions": len(sessions),
+        "recent_sessions_5min": recent_sessions,
         "max_sessions": MAX_SESSIONS,
         "session_ttl_hours": SESSION_TTL_HOURS,
         "max_messages_per_session": MAX_MESSAGES_PER_SESSION,
-        "features": [
-            "Session management with TTL",
-            "Automatic cleanup every 30 min",
-            "Max 20 messages per session",
-            "Max 1000 concurrent sessions",
-            "Prompt Caching enabled",
-            "Memory leak protected"
-        ]
+        "knowledge_loaded": KNOWLEDGE_CACHE is not None,
+        "knowledge_size_chars": len(KNOWLEDGE_CACHE) if KNOWLEDGE_CACHE else 0
     }
 
-@app.post("/reload-lexique")
-async def reload_lexique():
-    """Forcer le rechargement du lexique depuis GitHub"""
-    lexique = await load_lexique(force_reload=True)
-    return {
-        "status": "reloaded",
-        "lexique_size": len(lexique)
-    }
+@app.post("/warmup")
+async def warmup():
+    """Endpoint de warmup pour pré-charger le contexte"""
+    try:
+        context = await build_full_context()
+        return {
+            "status": "warmed_up",
+            "context_size": len(context),
+            "knowledge_loaded": True
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "knowledge_loaded": False
+        }
 
-@app.get("/info")
-async def info():
-    """Informations sur Nkotronic"""
-    return {
-        "name": "Nkotronic",
-        "version": "3.0.0-MEMORY-SAFE",
-        "description": "Intelligence Artificielle experte en N'ko",
-        "creator": "Holding Nkowuruki",
-        "grammar_lines": 864,
-        "models_available": ["gpt-4o", "gpt-4o-mini"],
-        "memory_protection": {
-            "session_ttl_hours": SESSION_TTL_HOURS,
-            "max_messages_per_session": MAX_MESSAGES_PER_SESSION,
-            "max_sessions": MAX_SESSIONS,
-            "cleanup_interval_minutes": CLEANUP_INTERVAL_MINUTES
-        },
-        "features": [
-            "Grammaire N'ko complète (864 lignes)",
-            "Lexique français-N'ko dynamique",
-            "Gestion des sessions avec TTL",
-            "Protection contre memory leak",
-            "Prompt Caching OpenAI",
-            "Cleanup automatique"
-        ]
-    }
-
-# ═══════════════════════════════════════════════════════════
-# LANCEMENT DU SERVEUR
-# ═══════════════════════════════════════════════════════════
-
+# Démarrage
 if __name__ == "__main__":
     import uvicorn
-    
-    print("╔══════════════════════════════════════════════════════════════╗")
-    print("║       🚀 NKOTRONIC API v3.0 - MEMORY SAFE                   ║")
-    print("╚══════════════════════════════════════════════════════════════╝")
-    print(f"✅ Grammaire: {len(NKOTRONIC_COMPLETE_GRAMMAR)} caractères")
-    print("✅ Lexique: GitHub dynamique")
-    print("✅ Modèle: gpt-4o / gpt-4o-mini")
-    print(f"✅ Sessions: Max {MAX_SESSIONS}, TTL {SESSION_TTL_HOURS}h")
-    print(f"✅ Messages/session: Max {MAX_MESSAGES_PER_SESSION}")
-    print(f"✅ Cleanup: Auto toutes les {CLEANUP_INTERVAL_MINUTES} min")
-    print("✅ Memory leak: PROTÉGÉ")
-    print("Port: 8000")
-    print("═══════════════════════════════════════════════════════════════")
-    
     uvicorn.run(app, host="0.0.0.0", port=8000)
