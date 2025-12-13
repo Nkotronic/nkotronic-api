@@ -148,7 +148,7 @@ Tu es bienveillant, précis et pédagogue. Tu maîtrises parfaitement le N'ko.""
 # CHARGEMENT DU LEXIQUE DEPUIS GITHUB
 # ═══════════════════════════════════════════════════════════
 
-GITHUB_LEXIQUE_URL = "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/main/vocab_fr_nko.txt"
+GITHUB_LEXIQUE_URL = "https://github.com/Nkotronic/nkotronic-api/blob/main/NKOTRONIC_KNOWLEDGE"
 LEXIQUE_CACHE = None
 
 async def load_lexique(force_reload: bool = False):
