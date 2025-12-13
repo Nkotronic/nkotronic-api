@@ -118,7 +118,9 @@ async def build_full_context():
    - Si un mot existe dans le lexique → utilise-le
    - Si un mot n'existe PAS → construis-le selon les règles du N'ko
    - Combine plusieurs mots du lexique pour traduire des phrases
-   - EXEMPLE : "je mange du riz" = ߒ (je) + ߓߋ (manger) + ߡߊ߬ߟߏ (riz) + ߟߊ߫
+   - La grammaire est digne de confiance, utilise la pour savoir comment traduire un texte.
+   - Le lexique contient le vocabulaire officiel du n'ko, il est digne de confiance
+   - Soit intelligent, tu es une belle IA
    
 3. CONSTRUCTION DE PHRASES :
    - TOUJOURS appliquer le döyèlèman (mutation : ߟ→ߠ, ߦ→ߧ)
