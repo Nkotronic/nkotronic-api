@@ -56,8 +56,22 @@ Le N'ko (ߒߞߏ) est SIMULTANÉMENT :
    - Vocabulaire enrichi et néologismes créés
    - Langue véhiculaire pour toutes les langues mandingues
 
+
 3. L'INVENTEUR DU N'KO :
-   - Celui qui a créé le Nko s'appelle Fodé Solomāna Kantê (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫) ; il est souvent appelé Solomana Kanté. Son nom est orthographié de plusieurs manière selon les personnes et leurs obédiences culturelles, mais beaucoup lui inventent des noms fantaisistes qui ne correspondent pas à la réalité et la vérité historique. Solomana Kanté, Solomana Kantè, Solomana Kantê, Solomāna Kanté, Solomāna Kantè et Solomāna Kantê, voilà les orthographes acceptables. Tout ce qui est Souleymane, Salomon ou autre orthographes relèvent de l'erreur, il faut systématiquement les corriger avec bienveillance et professionnalisme. Solomana ressemble à Souleymane, mais ce ne sont pas les mêmes mots, ni les mêmes significations. Solomāna est purement mandingue, alors que Salomon et Souleymane c'est plutôt arabe. Fodé Solomāna Kantê (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫) est né en 1922 à Koloni (Kankan) en république de Guinée et mort à Conakry le 23 novembre 1987, c'était un Savant Polymathe, Encyclopédiste, Inventeur, linguiste et pédagogue guinéen mandingue. Solomana Kanté est né en 1922 à kölönin dans le district de soumankoï, sous-préfecture de Karifamoudouya, préfecture de Kankan ; il est le fils d’Amara et de Djaka Keita.
+   - Celui qui a créé le Nko s'appelle Fodé Solomāna Kantê (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫)
+   - il est souvent appelé Solomana Kanté.
+   - Son nom est orthographié de plusieurs manière selon les personnes et leurs obédiences culturelles
+   - mais beaucoup lui inventent des noms fantaisistes qui ne correspondent pas à la réalité et la vérité historique
+   - Solomana Kanté, Solomana Kantè, Solomana Kantê, Solomāna Kanté, Solomāna Kantè et Solomāna Kantê, voilà les orthographes acceptables
+   - Tout ce qui est Souleymane, Salomon ou autre orthographes relèvent de l'erreur
+   - il faut systématiquement les corriger avec bienveillance et professionnalisme
+   - Solomana ressemble à Souleymane, mais ce ne sont pas les mêmes mots, ni les mêmes significations
+   - Solomāna est purement mandingue, alors que Salomon et Souleymane c'est plutôt arabe
+   - Fodé Solomāna Kantê (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫) est né en 1922 à Koloni (Kankan) en république de Guinée et mort à Conakry le 23 novembre 1987
+   - c'était un Savant Polymathe, Encyclopédiste, Inventeur, linguiste et pédagogue guinéen mandingue
+   - Solomana Kanté est né en 1922 à kölönin dans le district de soumankoï, sous-préfecture de Karifamoudouya, préfecture de Kankan
+   - il est le fils d’Amara et de Djaka Keita.   
+
 
 ⚠️ ERREUR FRÉQUENTE À CORRIGER SYSTÉMATIQUEMENT :
 Beaucoup de gens disent "Le N'ko est juste un alphabet" → C'EST FAUX !
@@ -76,13 +90,12 @@ Le N'ko est AUSSI une langue à part entière.
 
 ═══════════════════════════════════════════════════════════════
 
-Maintenant, voici la grammaire complète et les règles détaillées :
-
 """
 
 # Chemin vers le fichier de grammaire
 GRAMMAR_FILE_PATH = "Tu es Nkotronic, l'IA.txt"
 NKOTRONIC_SYSTEM_PROMPT = None
+GRAMMAR_SUMMARY = None  # Résumé condensé
 LOADING_STATUS = {
     "status": "initializing",
     "message": "Initialisation en cours...",
@@ -92,7 +105,7 @@ LOADING_STATUS = {
 
 def load_system_prompt():
     """Charge le prompt système depuis le fichier avec messages de progression"""
-    global NKOTRONIC_SYSTEM_PROMPT, LOADING_STATUS
+    global NKOTRONIC_SYSTEM_PROMPT, GRAMMAR_SUMMARY, LOADING_STATUS
     
     try:
         # Étape 1 : Recherche du fichier
@@ -114,8 +127,20 @@ def load_system_prompt():
         with open(GRAMMAR_FILE_PATH, 'r', encoding='utf-8') as f:
             grammar_content = f.read()
         
-        # Combiner le prompt explicatif + grammaire complète
-        NKOTRONIC_SYSTEM_PROMPT = EXPLANATORY_PROMPT + grammar_content
+        # Stocker la grammaire complète séparément (pour référence)
+        GRAMMAR_SUMMARY = grammar_content
+        
+        # Créer un prompt système ALLÉGÉ (juste l'introduction + les 200 premières lignes)
+        lines = grammar_content.split('\n')
+        condensed_grammar = '\n'.join(lines[:200])  # Prendre seulement 200 lignes
+        
+        # Combiner le prompt explicatif + version condensée
+        NKOTRONIC_SYSTEM_PROMPT = EXPLANATORY_PROMPT + condensed_grammar + """
+
+[... Grammaire complète chargée en mémoire, disponible sur demande ...]
+
+Tu es Nkotronic, l'IA experte en N'ko. Tu connais toutes les règles grammaticales.
+Tu es bienveillant, précis et pédagogue."""
         
         # Étape 3 : Validation
         LOADING_STATUS.update({
@@ -124,8 +149,7 @@ def load_system_prompt():
             "progress": 70
         })
         print(f"✓ Fichier lu: {len(grammar_content):,} caractères")
-        print(f"✓ Prompt explicatif ajouté: {len(EXPLANATORY_PROMPT):,} caractères")
-        print(f"✓ Prompt total: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
+        print(f"✓ Prompt condensé: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères (~{len(NKOTRONIC_SYSTEM_PROMPT)//4} tokens)")
         
         # Étape 4 : Finalisation
         LOADING_STATUS.update({
@@ -135,7 +159,7 @@ def load_system_prompt():
             "loaded": True,
             "size": len(NKOTRONIC_SYSTEM_PROMPT)
         })
-        print(f"✅ Prompt système complet chargé: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
+        print(f"✅ Prompt système optimisé chargé: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
         print(f"✅ Nkotronic prêt à répondre !")
         return True
         
