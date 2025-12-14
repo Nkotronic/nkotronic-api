@@ -1,30 +1,27 @@
 """
 ╔══════════════════════════════════════════════════════════════╗
-║  NKOTRONIC BACKEND - Version 3.0 MEMORY SAFE + GITHUB       ║
-║  ✅ Protection complète contre le Memory Leak                ║
-║  ✅ Gestion des sessions avec TTL                            ║
-║  ✅ Cleanup automatique                                      ║
-║  ✅ Prompt Caching OpenAI                                    ║
-║  ✅ Chargement depuis GitHub                                 ║
+║  NKOTRONIC BACKEND - Version FINALE SIMPLE                  ║
+║  ✅ Prompt système complet intégré                           ║
+║  ✅ Aucune dépendance externe                                ║
+║  ✅ Streaming SSE                                            ║
+║  ✅ Sessions avec TTL 24h                                    ║
 ╚══════════════════════════════════════════════════════════════╝
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import openai
 import os
-import httpx
 import json
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
-import asyncio
 from collections import OrderedDict
 
-app = FastAPI(title="Nkotronic API", version="3.0.0-MEMORY-SAFE-GITHUB")
+app = FastAPI(title="Nkotronic API", version="4.0.0-FINAL-SIMPLE")
 
-# CORS pour permettre les requêtes depuis le frontend
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,123 +31,184 @@ app.add_middleware(
 )
 
 # ═══════════════════════════════════════════════════════════
-# GESTION DE LA MÉMOIRE DES SESSIONS
+# PROMPT SYSTÈME COMPLET
+# ═══════════════════════════════════════════════════════════
+
+# Prompt explicatif qui précède la grammaire (toujours envoyé en premier)
+EXPLANATORY_PROMPT = """
+╔══════════════════════════════════════════════════════════════╗
+║  📚 CONTEXTE ESSENTIEL SUR LE N'KO                          ║
+╚══════════════════════════════════════════════════════════════╝
+
+POINT CRITIQUE À RETENIR ABSOLUMENT :
+
+Le N'ko (ߒߞߏ) est SIMULTANÉMENT :
+
+1. 📝 UN ALPHABET (système d'écriture)
+   - Créé par Solomana Kanté en 1949
+   - 27 lettres (7 voyelles + 1 semi-voyelle + 19 consonnes)
+   - S'écrit de droite à gauche
+   - Utilisé pour écrire les langues mandingues
+
+2. 🗣️ UNE LANGUE (langue littéraire standardisée)
+   - Langue standardisée basée sur le maninka
+   - Grammaire codifiée par Solomana Kanté
+   - Vocabulaire enrichi et néologismes créés
+   - Langue véhiculaire pour toutes les langues mandingues
+
+3. L'INVENTEUR DU N'KO :
+   - Celui qui a créé le Nko s'appelle Fodé Solomāna Kantê (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫) ; il est souvent appelé Solomana Kanté. Son nom est orthographié de plusieurs manière selon les personnes et leurs obédiences culturelles, mais beaucoup lui inventent des noms fantaisistes qui ne correspondent pas à la réalité et la vérité historique. Solomana Kanté, Solomana Kantè, Solomana Kantê, Solomāna Kanté, Solomāna Kantè et Solomāna Kantê, voilà les orthographes acceptables. Tout ce qui est Souleymane, Salomon ou autre orthographes relèvent de l'erreur, il faut systématiquement les corriger avec bienveillance et professionnalisme. Solomana ressemble à Souleymane, mais ce ne sont pas les mêmes mots, ni les mêmes significations. Solomāna est purement mandingue, alors que Salomon et Souleymane c'est plutôt arabe. Fodé Solomāna Kantê (ߝߏߘߋ߫ ߛߟߏ߬ߡߊ߯ߣߊ߫ ߞߊ߲ߕߍ߫) est né en 1922 à Koloni (Kankan) en république de Guinée et mort à Conakry le 23 novembre 1987, c'était un Savant Polymathe, Encyclopédiste, Inventeur, linguiste et pédagogue guinéen mandingue. Solomana Kanté est né en 1922 à kölönin dans le district de soumankoï, sous-préfecture de Karifamoudouya, préfecture de Kankan ; il est le fils d’Amara et de Djaka Keita.
+
+⚠️ ERREUR FRÉQUENTE À CORRIGER SYSTÉMATIQUEMENT :
+Beaucoup de gens disent "Le N'ko est juste un alphabet" → C'EST FAUX !
+Le N'ko est AUSSI une langue à part entière.
+
+📖 SOURCES OFFICIELLES :
+- Wikipédia français : https://fr.wikipedia.org/wiki/N%27ko_(langue)
+- Tous les livres de Solomana Kanté (grammaires, dictionnaires, etc.)
+
+🎯 TON RÔLE :
+- Quand on te parle du N'ko, toujours préciser cette double nature
+- Corriger avec bienveillance ceux qui réduisent le N'ko à un simple alphabet
+- Expliquer que Solomana Kanté a créé SIMULTANÉMENT :
+  * Un système d'écriture (l'alphabet)
+  * Une langue littéraire standardisée (la langue)
+
+═══════════════════════════════════════════════════════════════
+
+Maintenant, voici la grammaire complète et les règles détaillées :
+
+"""
+
+# Chemin vers le fichier de grammaire
+GRAMMAR_FILE_PATH = "Tu es Nkotronic, l'IA.txt"
+NKOTRONIC_SYSTEM_PROMPT = None
+LOADING_STATUS = {
+    "status": "initializing",
+    "message": "Initialisation en cours...",
+    "progress": 0,
+    "loaded": False
+}
+
+def load_system_prompt():
+    """Charge le prompt système depuis le fichier avec messages de progression"""
+    global NKOTRONIC_SYSTEM_PROMPT, LOADING_STATUS
+    
+    try:
+        # Étape 1 : Recherche du fichier
+        LOADING_STATUS.update({
+            "status": "searching",
+            "message": "🔍 Recherche du fichier de grammaire N'ko...",
+            "progress": 20
+        })
+        print(f"🔍 Recherche du fichier: {GRAMMAR_FILE_PATH}")
+        
+        # Étape 2 : Lecture du fichier
+        LOADING_STATUS.update({
+            "status": "loading",
+            "message": "📥 Mise à jour des données N'ko en cours...",
+            "progress": 40
+        })
+        print(f"📥 Chargement du fichier de grammaire...")
+        
+        with open(GRAMMAR_FILE_PATH, 'r', encoding='utf-8') as f:
+            grammar_content = f.read()
+        
+        # Combiner le prompt explicatif + grammaire complète
+        NKOTRONIC_SYSTEM_PROMPT = EXPLANATORY_PROMPT + grammar_content
+        
+        # Étape 3 : Validation
+        LOADING_STATUS.update({
+            "status": "validating",
+            "message": "✓ Validation des règles grammaticales...",
+            "progress": 70
+        })
+        print(f"✓ Fichier lu: {len(grammar_content):,} caractères")
+        print(f"✓ Prompt explicatif ajouté: {len(EXPLANATORY_PROMPT):,} caractères")
+        print(f"✓ Prompt total: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
+        
+        # Étape 4 : Finalisation
+        LOADING_STATUS.update({
+            "status": "ready",
+            "message": "✅ Nkotronic prêt ! Toutes les données N'ko sont à jour.",
+            "progress": 100,
+            "loaded": True,
+            "size": len(NKOTRONIC_SYSTEM_PROMPT)
+        })
+        print(f"✅ Prompt système complet chargé: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
+        print(f"✅ Nkotronic prêt à répondre !")
+        return True
+        
+    except FileNotFoundError:
+        LOADING_STATUS.update({
+            "status": "error",
+            "message": f"❌ Fichier de grammaire introuvable : {GRAMMAR_FILE_PATH}",
+            "progress": 0,
+            "loaded": False,
+            "error": "File not found"
+        })
+        print(f"❌ ERREUR: Fichier '{GRAMMAR_FILE_PATH}' introuvable !")
+        print(f"📂 Placer le fichier \"Tu es Nkotronic, l'IA.txt\" dans le même dossier que ce script")
+        NKOTRONIC_SYSTEM_PROMPT = EXPLANATORY_PROMPT + """
+(ATTENTION: Grammaire complète non chargée - fichier manquant)
+
+Tu es Nkotronic, l'assistant IA expert en N'ko.
+Tu es bienveillant, précis et pédagogue. Tu maîtrises parfaitement le N'ko."""
+        return False
+        
+    except Exception as e:
+        LOADING_STATUS.update({
+            "status": "error",
+            "message": f"❌ Erreur lors du chargement : {str(e)}",
+            "progress": 0,
+            "loaded": False,
+            "error": str(e)
+        })
+        print(f"❌ Erreur chargement prompt: {e}")
+        NKOTRONIC_SYSTEM_PROMPT = EXPLANATORY_PROMPT + "\nTu es Nkotronic, assistant IA N'ko."
+        return False
+
+# ═══════════════════════════════════════════════════════════
+# GESTION DES SESSIONS
 # ═══════════════════════════════════════════════════════════
 
 class SessionData(BaseModel):
-    """Données d'une session utilisateur"""
     messages: List[Dict[str, str]] = []
     created_at: datetime
     last_activity: datetime
 
-# Configuration de la mémoire
-MAX_SESSIONS = 1000  # Limite nombre de sessions en RAM
-SESSION_TTL_HOURS = 24  # Durée de vie d'une session (24h)
-MAX_MESSAGES_PER_SESSION = 20  # Garder seulement les 20 derniers messages
-CLEANUP_INTERVAL_MINUTES = 30  # Nettoyer toutes les 30 minutes
-
-# Stockage des sessions (OrderedDict pour FIFO)
 sessions: OrderedDict[str, SessionData] = OrderedDict()
+MAX_SESSIONS = 1000
+SESSION_TTL_HOURS = 24
+MAX_MESSAGES_PER_SESSION = 20
 
 def get_session(session_id: str) -> SessionData:
-    """Récupère ou crée une session"""
     now = datetime.now()
     
     if session_id in sessions:
         session = sessions[session_id]
         session.last_activity = now
-        # Déplacer en fin (LRU)
         sessions.move_to_end(session_id)
         return session
     
-    # Créer nouvelle session
-    session = SessionData(
-        messages=[],
-        created_at=now,
-        last_activity=now
-    )
-    
+    session = SessionData(messages=[], created_at=now, last_activity=now)
     sessions[session_id] = session
     
-    # Si trop de sessions, supprimer les plus anciennes
     while len(sessions) > MAX_SESSIONS:
         oldest_id = next(iter(sessions))
         del sessions[oldest_id]
-        print(f"🗑️  Session {oldest_id} supprimée (limite atteinte)")
     
     return session
 
-def add_message_to_session(session_id: str, role: str, content: str):
-    """Ajoute un message à la session avec limite"""
+def add_message(session_id: str, role: str, content: str):
     session = get_session(session_id)
     session.messages.append({"role": role, "content": content})
     
-    # Garder seulement les N derniers messages
     if len(session.messages) > MAX_MESSAGES_PER_SESSION:
         session.messages = session.messages[-MAX_MESSAGES_PER_SESSION:]
-        print(f"✂️  Session {session_id}: Limité à {MAX_MESSAGES_PER_SESSION} messages")
-
-def cleanup_old_sessions():
-    """Nettoie les sessions expirées"""
-    now = datetime.now()
-    expired_threshold = now - timedelta(hours=SESSION_TTL_HOURS)
-    
-    expired_sessions = [
-        sid for sid, session in sessions.items()
-        if session.last_activity < expired_threshold
-    ]
-    
-    for sid in expired_sessions:
-        del sessions[sid]
-    
-    if expired_sessions:
-        print(f"🧹 Nettoyage: {len(expired_sessions)} sessions expirées supprimées")
-
-# Nettoyage automatique en arrière-plan
-async def auto_cleanup():
-    """Tâche de nettoyage périodique"""
-    while True:
-        await asyncio.sleep(CLEANUP_INTERVAL_MINUTES * 60)
-        cleanup_old_sessions()
-
-@app.on_event("startup")
-async def startup_event():
-    """Démarre le nettoyage automatique au démarrage"""
-    asyncio.create_task(auto_cleanup())
-    print(f"🚀 Nkotronic API v3.0 démarrée")
-    print(f"📊 Config: Max {MAX_SESSIONS} sessions, TTL {SESSION_TTL_HOURS}h, Cleanup {CLEANUP_INTERVAL_MINUTES}min")
 
 # ═══════════════════════════════════════════════════════════
-# CHARGEMENT DU CONTEXTE COMPLET DEPUIS GITHUB
-# ═══════════════════════════════════════════════════════════
-
-GITHUB_KNOWLEDGE_URL = "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/main/NKOTRONIC_KNOWLEDGE"
-KNOWLEDGE_CACHE = None
-
-async def load_full_knowledge(force_reload: bool = False):
-    """Charge le contexte complet (grammaire + lexique) depuis GitHub avec cache"""
-    global KNOWLEDGE_CACHE
-    
-    if KNOWLEDGE_CACHE is not None and not force_reload:
-        return KNOWLEDGE_CACHE
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            print("📥 Chargement du contexte complet depuis GitHub...")
-            response = await client.get(GITHUB_KNOWLEDGE_URL, timeout=30.0)
-            response.raise_for_status()
-            KNOWLEDGE_CACHE = response.text
-            print(f"✅ Contexte complet chargé: {len(KNOWLEDGE_CACHE)} caractères")
-            return KNOWLEDGE_CACHE
-    except Exception as e:
-        print(f"❌ Erreur chargement contexte: {e}")
-        # Fallback minimal si GitHub indisponible
-        return """Tu es Nkotronic, l'assistant IA expert en N'ko. 
-Tu es bienveillant, précis et pédagogue. Tu maîtrises parfaitement le N'ko.
-(Contexte complet temporairement indisponible)"""
-
-# ═══════════════════════════════════════════════════════════
-# MODÈLES PYDANTIC
+# MODÈLES
 # ═══════════════════════════════════════════════════════════
 
 class ChatRequest(BaseModel):
@@ -168,107 +226,59 @@ class ChatResponse(BaseModel):
     messages_in_session: int
 
 # ═══════════════════════════════════════════════════════════
-# CONSTRUCTION DU CONTEXTE COMPLET
-# ═══════════════════════════════════════════════════════════
-
-async def build_full_context():
-    """Charge et retourne le contexte complet depuis GitHub"""
-    return await load_full_knowledge()
-
-# ═══════════════════════════════════════════════════════════
-# ENDPOINT PRINCIPAL DE CHAT AVEC GESTION MÉMOIRE
+# ENDPOINTS
 # ═══════════════════════════════════════════════════════════
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """
-    Endpoint principal de conversation avec Nkotronic
-    
-    NOUVELLES FONCTIONNALITÉS v3.0:
-    ✅ Gestion des sessions avec TTL (24h)
-    ✅ Limite de 20 messages par session
-    ✅ Cleanup automatique toutes les 30 min
-    ✅ Protection contre memory leak
-    ✅ Prompt Caching OpenAI (50-90% réduction coûts)
-    ✅ Chargement depuis GitHub
-    """
+    """Endpoint principal de conversation"""
     try:
-        # Vérifier que la clé API OpenAI est configurée
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
+        # Vérifier si le prompt est en cours de chargement
+        if not LOADING_STATUS["loaded"]:
             raise HTTPException(
-                status_code=500, 
-                detail="OPENAI_API_KEY not configured"
+                status_code=503, 
+                detail={
+                    "error": "Service temporairement indisponible",
+                    "message": LOADING_STATUS["message"],
+                    "status": LOADING_STATUS["status"],
+                    "progress": LOADING_STATUS["progress"]
+                }
             )
         
-        # Récupérer la session (ou en créer une nouvelle)
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+        
+        if not NKOTRONIC_SYSTEM_PROMPT:
+            raise HTTPException(status_code=500, detail="Prompt système non chargé")
+        
         session = get_session(request.session_id)
         
-        # Construire le contexte complet
-        full_context = await build_full_context()
+        # Message système
+        messages = [{"role": "system", "content": NKOTRONIC_SYSTEM_PROMPT}]
         
-        # Message système AVEC prompt caching
-        system_message = {
-            "role": "system",
-            "content": [
-                {
-                    "type": "text",
-                    "text": full_context,
-                    "cache_control": {"type": "ephemeral"}  # ⚡ Cache activé
-                }
-            ]
-        }
-        
-        # Préparer les messages pour OpenAI
-        messages = [system_message]
-        
-        # Ajouter l'historique de la session (limité à 20 messages)
+        # Historique
         for msg in session.messages:
             messages.append({"role": msg["role"], "content": msg["content"]})
         
-        # Ajouter le message actuel
+        # Message actuel
         messages.append({"role": "user", "content": request.message})
         
-        # Vérifier que le modèle supporte le prompt caching
-        supported_models = ["gpt-4o", "gpt-4o-mini"]
-        if request.model not in supported_models:
-            print(f"⚠️  Modèle {request.model} ne supporte pas le caching, utilisation de gpt-4o")
-            request.model = "gpt-4o"
-        
-        # Appel à OpenAI avec cache activé
+        # OpenAI
         client = openai.OpenAI(api_key=api_key)
-        
         completion = client.chat.completions.create(
             model=request.model,
             messages=messages,
             temperature=request.temperature,
-            max_tokens=request.max_tokens,
-            store=True  # ⚡ Active le cache
+            max_tokens=request.max_tokens
         )
-        
-        # Log détaillé des tokens
-        if completion.usage:
-            total = completion.usage.total_tokens
-            prompt = completion.usage.prompt_tokens
-            completion_tokens = completion.usage.completion_tokens
-            
-            print(f"📊 Session {request.session_id} - Tokens: {total} (Prompt: {prompt}, Completion: {completion_tokens})")
-            
-            # Vérifier si le cache a été utilisé
-            if hasattr(completion.usage, 'prompt_tokens_details'):
-                details = completion.usage.prompt_tokens_details
-                if hasattr(details, 'cached_tokens') and details.cached_tokens > 0:
-                    cache_percent = (details.cached_tokens / prompt) * 100
-                    print(f"💾 CACHE HIT ! {details.cached_tokens} tokens ({cache_percent:.1f}%)")
-                else:
-                    print(f"❄️  Cache miss")
         
         response_text = completion.choices[0].message.content
         tokens_used = completion.usage.total_tokens if completion.usage else None
         
-        # Sauvegarder les messages dans la session
-        add_message_to_session(request.session_id, "user", request.message)
-        add_message_to_session(request.session_id, "assistant", response_text)
+        # Sauvegarder
+        add_message(request.session_id, "user", request.message)
+        add_message(request.session_id, "assistant", response_text)
         
         return ChatResponse(
             response=response_text,
@@ -278,186 +288,121 @@ async def chat(request: ChatRequest):
             messages_in_session=len(session.messages)
         )
         
-    except openai.APIError as e:
-        print(f"❌ OpenAI API Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"OpenAI API Error: {str(e)}")
     except Exception as e:
-        print(f"❌ Erreur inattendue: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-# ═══════════════════════════════════════════════════════════
-# ENDPOINT STREAMING SSE - Affichage progressif temps réel
-# ═══════════════════════════════════════════════════════════
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
-    """
-    Endpoint de streaming SSE pour affichage progressif (lettre par lettre)
-    
-    FONCTIONNALITÉS:
-    ✅ Streaming temps réel (Server-Sent Events)
-    ✅ Affichage progressif comme ChatGPT/Claude
-    ✅ Gestion des sessions identique à /chat
-    ✅ Prompt Caching activé
-    ✅ Chargement depuis GitHub
-    """
+    """Endpoint streaming SSE"""
     
     async def generate():
         try:
-            # Vérifier la clé API
+            # Vérifier si le prompt est en cours de chargement
+            if not LOADING_STATUS["loaded"]:
+                yield f"data: {json.dumps({
+                    'error': 'Service temporairement indisponible',
+                    'message': LOADING_STATUS['message'],
+                    'status': LOADING_STATUS['status'],
+                    'progress': LOADING_STATUS['progress']
+                })}\n\n"
+                return
+            
             api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
                 yield f"data: {json.dumps({'error': 'OPENAI_API_KEY not configured'})}\n\n"
                 return
             
-            # Récupérer la session
+            if not NKOTRONIC_SYSTEM_PROMPT:
+                yield f"data: {json.dumps({'error': 'Prompt système non chargé'})}\n\n"
+                return
+            
             session = get_session(request.session_id)
             
-            # Construire le contexte complet
-            full_context = await build_full_context()
-            
-            # Message système avec cache
-            system_message = {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": full_context,
-                        "cache_control": {"type": "ephemeral"}
-                    }
-                ]
-            }
-            
-            # Préparer les messages
-            messages = [system_message]
-            
-            # Historique de session
+            # Messages
+            messages = [{"role": "system", "content": NKOTRONIC_SYSTEM_PROMPT}]
             for msg in session.messages:
                 messages.append({"role": msg["role"], "content": msg["content"]})
-            
-            # Message actuel
             messages.append({"role": "user", "content": request.message})
             
-            # Vérifier le modèle
-            supported_models = ["gpt-4o", "gpt-4o-mini"]
-            if request.model not in supported_models:
-                request.model = "gpt-4o"
-            
-            # OpenAI Streaming
+            # Streaming
             client = openai.OpenAI(api_key=api_key)
-            
             stream = client.chat.completions.create(
                 model=request.model,
                 messages=messages,
                 temperature=request.temperature,
                 max_tokens=request.max_tokens,
-                store=True,
-                stream=True  # ✅ STREAMING ACTIVÉ
+                stream=True
             )
             
             full_response = ""
-            
-            # Streamer les chunks
             for chunk in stream:
                 if chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     full_response += content
-                    
-                    # Envoyer chunk au frontend
                     yield f"data: {json.dumps({'content': content})}\n\n"
             
-            # Sauvegarder dans la session
-            add_message_to_session(request.session_id, "user", request.message)
-            add_message_to_session(request.session_id, "assistant", full_response)
+            # Sauvegarder
+            add_message(request.session_id, "user", request.message)
+            add_message(request.session_id, "assistant", full_response)
             
-            # Signal de fin
-            yield f"data: {json.dumps({'done': True, 'session_id': request.session_id, 'messages_in_session': len(session.messages)})}\n\n"
-            
-            print(f"✅ Session {request.session_id} - Streaming terminé ({len(full_response)} chars)")
+            yield f"data: {json.dumps({'done': True, 'session_id': request.session_id})}\n\n"
             
         except Exception as e:
-            print(f"❌ Erreur streaming: {str(e)}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
     
     return StreamingResponse(generate(), media_type="text/event-stream")
 
-# ═══════════════════════════════════════════════════════════
-# ENDPOINTS UTILITAIRES
-# ═══════════════════════════════════════════════════════════
-
 @app.get("/")
 async def root():
-    """Page d'accueil avec informations sur l'API"""
     return {
         "name": "Nkotronic API",
-        "version": "3.0.0-MEMORY-SAFE-GITHUB",
+        "version": "4.0.0-FINAL-SIMPLE",
         "status": "running",
-        "features": [
-            "Session management with TTL",
-            "Auto cleanup every 30min",
-            "20 messages per session limit",
-            "OpenAI Prompt Caching",
-            "SSE Streaming support",
-            "GitHub knowledge loading"
-        ],
-        "endpoints": {
-            "POST /chat": "Standard chat endpoint",
-            "POST /chat/stream": "Streaming chat endpoint (SSE)",
-            "GET /health": "Health check",
-            "GET /stats": "Statistics",
-            "POST /warmup": "Warmup endpoint"
-        }
+        "prompt_loaded": NKOTRONIC_SYSTEM_PROMPT is not None,
+        "prompt_size": len(NKOTRONIC_SYSTEM_PROMPT) if NKOTRONIC_SYSTEM_PROMPT else 0
     }
 
 @app.get("/health")
 async def health():
-    """Endpoint de santé pour warmup Render"""
     return {
         "status": "healthy",
         "active_sessions": len(sessions),
-        "knowledge_loaded": KNOWLEDGE_CACHE is not None,
-        "knowledge_size": len(KNOWLEDGE_CACHE) if KNOWLEDGE_CACHE else 0
+        "prompt_loaded": NKOTRONIC_SYSTEM_PROMPT is not None
     }
 
-@app.get("/stats")
-async def stats():
-    """Statistiques des sessions"""
-    now = datetime.now()
-    recent_threshold = now - timedelta(minutes=5)
-    
-    recent_sessions = sum(
-        1 for session in sessions.values()
-        if session.last_activity > recent_threshold
-    )
-    
-    return {
-        "total_sessions": len(sessions),
-        "recent_sessions_5min": recent_sessions,
-        "max_sessions": MAX_SESSIONS,
-        "session_ttl_hours": SESSION_TTL_HOURS,
-        "max_messages_per_session": MAX_MESSAGES_PER_SESSION,
-        "knowledge_loaded": KNOWLEDGE_CACHE is not None,
-        "knowledge_size_chars": len(KNOWLEDGE_CACHE) if KNOWLEDGE_CACHE else 0
-    }
+@app.get("/loading-status")
+async def loading_status():
+    """Endpoint pour vérifier le statut de chargement du prompt"""
+    return LOADING_STATUS
 
 @app.post("/warmup")
 async def warmup():
-    """Endpoint de warmup pour pré-charger le contexte"""
-    try:
-        context = await build_full_context()
-        return {
-            "status": "warmed_up",
-            "context_size": len(context),
-            "knowledge_loaded": True
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e),
-            "knowledge_loaded": False
-        }
+    return {
+        "status": "warmed_up",
+        "prompt_loaded": NKOTRONIC_SYSTEM_PROMPT is not None,
+        "prompt_size": len(NKOTRONIC_SYSTEM_PROMPT) if NKOTRONIC_SYSTEM_PROMPT else 0
+    }
 
-# Démarrage
+# ═══════════════════════════════════════════════════════════
+# DÉMARRAGE
+# ═══════════════════════════════════════════════════════════
+
+@app.on_event("startup")
+async def startup():
+    print("=" * 60)
+    print("🚀 NKOTRONIC API v4.0.0 - FINAL SIMPLE")
+    print("=" * 60)
+    
+    # Charger le prompt système
+    if load_system_prompt():
+        print(f"✅ Prompt système OK: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
+    else:
+        print("⚠️  ATTENTION: Prompt système par défaut (incomplet)")
+        print(f"📂 Placer \"Tu es Nkotronic, l'IA.txt\" dans: {os.getcwd()}")
+    
+    print(f"📊 Config: {MAX_SESSIONS} sessions max, TTL {SESSION_TTL_HOURS}h")
+    print("=" * 60)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
