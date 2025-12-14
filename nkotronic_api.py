@@ -25,10 +25,9 @@ from collections import OrderedDict
 try:
     from qdrant_client import QdrantClient
     from qdrant_client.models import Distance, VectorParams, PointStruct
-    from sentence_transformers import SentenceTransformer
     QDRANT_AVAILABLE = True
 except ImportError:
-    print("⚠️  Qdrant non disponible. Installer: pip install qdrant-client sentence-transformers")
+    print("⚠️  Qdrant non disponible. Installer: pip install qdrant-client")
     QDRANT_AVAILABLE = False
 
 app = FastAPI(title="Nkotronic API", version="4.1.0-VOCABULARY")
@@ -47,7 +46,7 @@ app.add_middleware(
 # ═══════════════════════════════════════════════════════════
 
 # Qdrant
-QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
+QDRANT_URL = os.environ.get("QDRANT_URL", "https://e426525b-09b9-48f5-813b-466a169caa02.us-east4-0.gcp.cloud.qdrant.io:6333")
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", None)
 GITHUB_LEXIQUE_URL = os.environ.get(
     "GITHUB_LEXIQUE_URL",
@@ -55,12 +54,16 @@ GITHUB_LEXIQUE_URL = os.environ.get(
 )
 COLLECTION_NAME = "nko_vocabulaire"
 
+# Embeddings OpenAI (au lieu de SentenceTransformers local)
+EMBEDDING_MODEL = "text-embedding-3-small"  # Modèle OpenAI API
+VECTOR_SIZE = 1536  # Dimension pour text-embedding-3-small
+
 # Grammaire
 GRAMMAR_FILE_PATH = "Tu es Nkotronic, l'IA.txt"
 
 # Clients globaux
 qdrant_client = None
-embedding_model = None
+openai_client = None  # Utilisé pour les embeddings aussi
 NKOTRONIC_SYSTEM_PROMPT = None
 GRAMMAR_SUMMARY = None
 
@@ -227,8 +230,8 @@ Tu es bienveillant, précis et pédagogue."""
 # ═══════════════════════════════════════════════════════════
 
 def init_qdrant():
-    """Initialise la connexion Qdrant et le modèle d'embedding"""
-    global qdrant_client, embedding_model, LOADING_STATUS
+    """Initialise la connexion Qdrant (sans modèle d'embedding local)"""
+    global qdrant_client, openai_client, LOADING_STATUS
     
     if not QDRANT_AVAILABLE:
         print("⚠️  Qdrant non disponible (dépendances manquantes)")
@@ -248,17 +251,15 @@ def init_qdrant():
             timeout=30
         )
         
-        LOADING_STATUS.update({
-            "status": "loading_model",
-            "message": "🤖 Chargement du modèle d'embedding...",
-            "progress": 20
-        })
-        print("🤖 Chargement du modèle d'embedding...")
+        # Initialiser le client OpenAI (pour embeddings)
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            print("❌ OPENAI_API_KEY manquant")
+            return False
         
-        # Utiliser un modèle plus léger pour Render (limite 512 MB RAM)
-        embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        openai_client = openai.OpenAI(api_key=api_key)
         
-        print("✅ Qdrant initialisé avec succès")
+        print("✅ Qdrant + OpenAI embeddings initialisés")
         return True
         
     except Exception as e:
@@ -318,8 +319,8 @@ def sync_lexique_to_qdrant():
     """Télécharge le lexique depuis GitHub et le synchronise avec Qdrant"""
     global LOADING_STATUS
     
-    if not QDRANT_AVAILABLE or not qdrant_client or not embedding_model:
-        print("⚠️  Qdrant non disponible, synchronisation impossible")
+    if not QDRANT_AVAILABLE or not qdrant_client or not openai_client:
+        print("⚠️  Qdrant ou OpenAI non disponible, synchronisation impossible")
         return False
     
     try:
@@ -373,69 +374,98 @@ def sync_lexique_to_qdrant():
         
         qdrant_client.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+            on_disk_payload=True  # Économise la RAM !
         )
         print(f"✅ Collection '{COLLECTION_NAME}' créée")
         
-        # Étape 5 : Indexer les mots
+        # Étape 5 : Créer les embeddings via OpenAI API
         LOADING_STATUS.update({
-            "status": "indexing_vocabulary",
-            "message": f"⚡ Indexation de {len(lexique)} mots...",
+            "status": "creating_embeddings",
+            "message": f"🧠 Création des embeddings (OpenAI)...",
             "progress": 80
         })
         
+        # Préparer les textes pour embedding
+        texts_to_embed = []
+        text_to_payload = {}
+        
+        for francais, nko in lexique.items():
+            # Embedder les deux (français et nko)
+            texts_to_embed.append(francais)
+            text_to_payload[francais] = {
+                "francais": francais,
+                "nko": nko,
+                "type": "vocabulaire"
+            }
+            
+            texts_to_embed.append(nko)
+            text_to_payload[nko] = {
+                "francais": francais,
+                "nko": nko,
+                "type": "vocabulaire"
+            }
+        
+        print(f"🧠 Création de {len(texts_to_embed)} embeddings via OpenAI...")
+        
+        # Appeler l'API OpenAI pour créer les embeddings (par batch de 100)
+        batch_size = 100
+        all_embeddings = []
+        
+        for i in range(0, len(texts_to_embed), batch_size):
+            batch = texts_to_embed[i:i+batch_size]
+            print(f"  📤 Batch {i//batch_size + 1}/{(len(texts_to_embed)-1)//batch_size + 1}...")
+            
+            response = openai_client.embeddings.create(
+                input=batch,
+                model=EMBEDDING_MODEL
+            )
+            
+            all_embeddings.extend([item.embedding for item in response.data])
+        
+        print(f"✅ {len(all_embeddings)} embeddings créés")
+        
+        # Étape 6 : Indexer dans Qdrant
+        LOADING_STATUS.update({
+            "status": "indexing_vocabulary",
+            "message": f"⚡ Indexation dans Qdrant...",
+            "progress": 85
+        })
+        
         points = []
+        for idx, (text, embedding) in enumerate(zip(texts_to_embed, all_embeddings)):
+            points.append(PointStruct(
+                id=idx,
+                vector=embedding,
+                payload=text_to_payload[text]
+            ))
+        
+        # Uploader par batch
         batch_size = 100
         indexed_count = 0
         
-        for idx, (francais, nko) in enumerate(lexique.items()):
-            try:
-                # Créer embedding pour le mot français
-                vector = embedding_model.encode(francais).tolist()
-                
-                points.append(PointStruct(
-                    id=idx,
-                    vector=vector,
-                    payload={
-                        "francais": francais,
-                        "nko": nko,
-                        "type": "vocabulaire"
-                    }
-                ))
-                
-                # Uploader par batch
-                if len(points) >= batch_size:
-                    qdrant_client.upsert(collection_name=COLLECTION_NAME, points=points)
-                    indexed_count += len(points)
-                    points = []
-                    
-                    # Mise à jour progression
-                    progress = 80 + int((indexed_count / len(lexique)) * 15)
-                    LOADING_STATUS.update({
-                        "progress": min(progress, 95),
-                        "message": f"⚡ Indexation: {indexed_count}/{len(lexique)} mots..."
-                    })
-                    print(f"  📤 {indexed_count}/{len(lexique)} mots indexés...")
-                    
-            except Exception as e:
-                print(f"⚠️  Erreur indexation mot '{francais}': {e}")
-                continue
+        for i in range(0, len(points), batch_size):
+            batch = points[i:i+batch_size]
+            qdrant_client.upsert(collection_name=COLLECTION_NAME, points=batch)
+            indexed_count += len(batch)
+            
+            progress = 85 + int((indexed_count / len(points)) * 10)
+            LOADING_STATUS.update({
+                "progress": min(progress, 95),
+                "message": f"⚡ Indexation: {indexed_count}/{len(points)}..."
+            })
+            print(f"  📤 {indexed_count}/{len(points)} points indexés...")
         
-        # Uploader le reste
-        if points:
-            qdrant_client.upsert(collection_name=COLLECTION_NAME, points=points)
-            indexed_count += len(points)
-        
-        # Étape 6 : Finalisation
+        # Étape 7 : Finalisation
         LOADING_STATUS.update({
             "status": "ready",
-            "message": f"✅ Système prêt ! Vocabulaire: {indexed_count} mots",
+            "message": f"✅ Système prêt ! Vocabulaire: {len(lexique)} mots",
             "progress": 100,
             "vocabulary_loaded": True,
-            "vocabulary_count": indexed_count
+            "vocabulary_count": len(lexique)
         })
         
-        print(f"✅ {indexed_count} mots indexés dans Qdrant avec succès")
+        print(f"✅ {len(lexique)} mots indexés dans Qdrant avec succès")
         return True
         
     except requests.RequestException as e:
@@ -459,13 +489,17 @@ def sync_lexique_to_qdrant():
         return False
 
 def search_vocabulary(query: str, limit: int = 15) -> list:
-    """Recherche des mots dans le vocabulaire Qdrant"""
+    """Recherche des mots dans le vocabulaire Qdrant en utilisant les embeddings OpenAI"""
     try:
-        if not qdrant_client or not embedding_model:
+        if not qdrant_client or not openai_client:
             return []
         
-        # Créer embedding de la requête
-        query_vector = embedding_model.encode(query).tolist()
+        # Créer embedding de la requête via OpenAI API
+        response = openai_client.embeddings.create(
+            input=[query],
+            model=EMBEDDING_MODEL
+        )
+        query_vector = response.data[0].embedding
         
         # Rechercher dans Qdrant
         results = qdrant_client.search(
