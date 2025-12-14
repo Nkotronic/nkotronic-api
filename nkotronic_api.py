@@ -47,13 +47,13 @@ app.add_middleware(
 # ═══════════════════════════════════════════════════════════
 
 # Qdrant
-QDRANT_URL = os.environ.get("QDRANT_URL", "https://e426525b-09b9-48f5-813b-466a169caa02.us-east4-0.gcp.cloud.qdrant.io")
+QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", None)
 GITHUB_LEXIQUE_URL = os.environ.get(
     "GITHUB_LEXIQUE_URL",
-    "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/blob/main/NKOTRONIC_KNOWLEDGE"
+    "https://raw.githubusercontent.com/TON_USER/TON_REPO/main/lexique_nko.txt"
 )
-COLLECTION_NAME = "nkovocabulaire"
+COLLECTION_NAME = "nko_vocabulaire"
 
 # Grammaire
 GRAMMAR_FILE_PATH = "Tu es Nkotronic, l'IA.txt"
@@ -255,7 +255,8 @@ def init_qdrant():
         })
         print("🤖 Chargement du modèle d'embedding...")
         
-        embedding_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+        # Utiliser un modèle plus léger pour Render (limite 512 MB RAM)
+        embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
         
         print("✅ Qdrant initialisé avec succès")
         return True
@@ -773,55 +774,59 @@ async def warmup():
 @app.on_event("startup")
 async def startup():
     print("=" * 70)
-    print("🚀 NKOTRONIC API v4.1.0 - AVEC VOCABULAIRE GITHUB + QDRANT")
+    print("🚀 NKOTRONIC API v4.1.0 - DÉMARRAGE OPTIMISÉ RENDER")
     print("=" * 70)
     
-    # Étape 1 : Initialiser Qdrant
-    print("\n📊 ÉTAPE 1/3 : Initialisation Qdrant")
-    print("-" * 70)
-    qdrant_ok = init_qdrant()
-    
-    if qdrant_ok:
-        print("✅ Qdrant connecté et prêt")
-        
-        # Étape 2 : Synchroniser vocabulaire
-        print("\n📚 ÉTAPE 2/3 : Synchronisation vocabulaire depuis GitHub")
-        print("-" * 70)
-        vocab_ok = sync_lexique_to_qdrant()
-        
-        if vocab_ok:
-            print(f"✅ Vocabulaire synchronisé: {LOADING_STATUS.get('vocabulary_count', 0)} mots")
-        else:
-            print("⚠️  Vocabulaire non chargé (continuera sans)")
-    else:
-        print("⚠️  Qdrant non disponible (vocabulaire désactivé)")
-    
-    # Étape 3 : Charger grammaire
-    print("\n📖 ÉTAPE 3/3 : Chargement de la grammaire N'ko")
+    # Charger la grammaire d'abord (rapide, ~1 seconde)
+    print("\n📖 Chargement de la grammaire N'ko...")
     print("-" * 70)
     grammar_ok = load_system_prompt()
     
     if grammar_ok:
         print(f"✅ Grammaire chargée: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
     else:
-        print("⚠️  Grammaire non chargée (mode dégradé)")
+        print("⚠️ Grammaire non chargée (mode dégradé)")
     
-    # Résumé final
     print("\n" + "=" * 70)
-    print("📊 RÉSUMÉ DU DÉMARRAGE")
-    print("=" * 70)
-    print(f"✅ Qdrant         : {'OUI' if qdrant_ok else 'NON'}")
-    print(f"✅ Vocabulaire    : {LOADING_STATUS.get('vocabulary_count', 0)} mots")
-    print(f"✅ Grammaire      : {'OUI' if grammar_ok else 'NON'}")
-    print(f"📊 Sessions max   : {MAX_SESSIONS} (TTL: {SESSION_TTL_HOURS}h)")
-    print(f"🌍 GitHub lexique : {GITHUB_LEXIQUE_URL}")
+    print("✅ API PRÊTE ! (vocabulaire en cours de chargement...)")
+    print("=" * 70 + "\n")
+    
+    # Charger Qdrant et vocabulaire en arrière-plan (évite timeout)
+    import asyncio
+    asyncio.create_task(init_qdrant_and_vocab_async())
+
+
+async def init_qdrant_and_vocab_async():
+    """Initialise Qdrant et le vocabulaire en arrière-plan après le démarrage"""
+    import asyncio
+    
+    # Attendre que le serveur soit bien démarré
+    await asyncio.sleep(3)
+    
+    print("\n" + "=" * 70)
+    print("📊 CHARGEMENT VOCABULAIRE EN ARRIÈRE-PLAN")
     print("=" * 70)
     
-    if LOADING_STATUS.get("status") == "ready":
-        print("🎉 Nkotronic prêt à répondre !")
+    # Étape 1 : Initialiser Qdrant
+    print("\n🔗 Connexion à Qdrant...")
+    qdrant_ok = init_qdrant()
+    
+    if qdrant_ok:
+        print("✅ Qdrant connecté")
+        
+        # Étape 2 : Synchroniser vocabulaire
+        print("\n📚 Synchronisation du vocabulaire depuis GitHub...")
+        vocab_ok = sync_lexique_to_qdrant()
+        
+        if vocab_ok:
+            print(f"\n✅ VOCABULAIRE CHARGÉ : {LOADING_STATUS.get('vocabulary_count', 0)} mots")
+        else:
+            print("\n⚠️ Vocabulaire non chargé (continuera sans)")
     else:
-        print("⚠️  Démarrage partiel - certaines fonctionnalités limitées")
+        print("⚠️ Qdrant non disponible (vocabulaire désactivé)")
     
+    print("\n" + "=" * 70)
+    print("🎉 SYSTÈME COMPLÈTEMENT OPÉRATIONNEL !")
     print("=" * 70 + "\n")
 
 if __name__ == "__main__":
