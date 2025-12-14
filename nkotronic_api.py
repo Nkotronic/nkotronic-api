@@ -51,7 +51,7 @@ QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", None)
 GITHUB_LEXIQUE_URL = os.environ.get(
     "GITHUB_LEXIQUE_URL",
-    "https://raw.githubusercontent.com/TON_USER/TON_REPO/main/lexique_nko.txt"
+    "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/refs/heads/main/NKOTRONIC_KNOWLEDGE"
 )
 COLLECTION_NAME = "nko_vocabulaire"
 
