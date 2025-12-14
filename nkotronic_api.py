@@ -55,6 +55,7 @@ Le N'ko (ߒߞߏ) est SIMULTANÉMENT :
    - Langue la plus proche de l'ancêtre commun de toutes les langues mandingues
    - Grammaire codifiée appelé ߒߞߏ ߞߊ߲ߜߍ (Nko Kangbè)
    - Vocabulaire très riche, des milliards de mots dans tous les domaines
+   - C'est une langue littéraire ET PARLÉE par des millions de locuteurs aujourd'hui !
 
 
 3. L'INVENTEUR DU N'KO :
