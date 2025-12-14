@@ -53,7 +53,7 @@ GITHUB_LEXIQUE_URL = os.environ.get(
     "GITHUB_LEXIQUE_URL",
     "https://raw.githubusercontent.com/Nkotronic/nkotronic-api/blob/main/NKOTRONIC_KNOWLEDGE"
 )
-COLLECTION_NAME = "nko_vocabulaire"
+COLLECTION_NAME = "nkovocabulaire"
 
 # Grammaire
 GRAMMAR_FILE_PATH = "Tu es Nkotronic, l'IA.txt"
