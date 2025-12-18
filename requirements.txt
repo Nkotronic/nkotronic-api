@@ -1,0 +1,31 @@
+# NKOTRONIC BACKEND v4.4.0 HYBRID - REQUIREMENTS
+# Installation: pip install -r requirements.txt
+# Compatible Render plan gratuit (~300 MB RAM)
+
+# FastAPI et serveur
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+
+# OpenAI (pour chat + embeddings)
+openai==1.54.0
+
+# HTTP asynchrone (IMPORTANT pour télécharger le vocabulaire)
+httpx==0.27.0
+
+# Qdrant (optionnel - base vectorielle)
+qdrant-client==1.12.0
+
+# Utilitaires
+pydantic==2.9.0
+python-dotenv==1.0.1
+
+# ═══════════════════════════════════════════════════════════
+# DÉPENDANCES RETIRÉES (économie RAM)
+# ═══════════════════════════════════════════════════════════
+# sentence-transformers  (~500 MB)  ← RETIRÉ
+# torch                  (~800 MB)  ← RETIRÉ
+# requests               (remplacé par httpx)
+# 
+# ÉCONOMIE TOTALE: ~1.3 GB de RAM ! 🎉
+# ═══════════════════════════════════════════════════════════
