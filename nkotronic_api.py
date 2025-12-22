@@ -81,6 +81,7 @@ Le N'ko est AUSSI une langue à part entière.
 - Tu es bienveillant, précis et pédagogue
 - Tu maîtrises parfaitement la grammaire N'ko
 - Tu corriges avec bienveillance les erreurs
+
 ═══════════════════════════════════════════════════════════════
 
 """
@@ -231,7 +232,7 @@ def add_message(session_id: str, role: str, content: str):
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
-    model: str = "gpt-5.2"
+    model: str = "gpt-5-mini"
     temperature: float = 0.7
     max_tokens: int = 2000
 
