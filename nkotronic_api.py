@@ -336,28 +336,74 @@ async def chat_stream(request: ChatRequest):
             
             session = get_session(request.session_id)
             
-            # Messages
-            messages = [{"role": "system", "content": NKOTRONIC_SYSTEM_PROMPT}]
-            for msg in session.messages:
-                messages.append({"role": msg["role"], "content": msg["content"]})
-            messages.append({"role": "user", "content": request.message})
-            
             # Streaming
             client = openai.OpenAI(api_key=api_key)
-            stream = client.chat.completions.create(
-                model=request.model,
-                messages=messages,
-                temperature=request.temperature,
-                max_tokens=request.max_tokens,
-                stream=True
-            )
+            
+            # Détecter si on utilise un modèle GPT-5 (Responses API) ou autre (Chat Completions API)
+            is_gpt5 = request.model.startswith("gpt-5")
             
             full_response = ""
-            for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    full_response += content
-                    yield f"data: {json.dumps({'content': content})}\n\n"
+            
+            if is_gpt5:
+                # ========== RESPONSES API (pour GPT-5) ==========
+                # Construire l'input pour Responses API
+                input_messages = []
+                
+                # Ajouter le prompt système
+                input_messages.append({
+                    "role": "developer",
+                    "content": NKOTRONIC_SYSTEM_PROMPT
+                })
+                
+                # Ajouter l'historique
+                for msg in session.messages:
+                    input_messages.append({
+                        "role": msg["role"],
+                        "content": msg["content"]
+                    })
+                
+                # Ajouter le message utilisateur
+                input_messages.append({
+                    "role": "user",
+                    "content": request.message
+                })
+                
+                # Stream avec Responses API
+                stream = client.responses.create(
+                    model=request.model,
+                    input=input_messages,
+                    stream=True
+                )
+                
+                # Traiter le stream Responses API
+                for event in stream:
+                    # Extraire le texte des output items
+                    if hasattr(event, 'output') and event.output:
+                        for item in event.output:
+                            if hasattr(item, 'text') and item.text:
+                                content = item.text
+                                full_response += content
+                                yield f"data: {json.dumps({'content': content})}\n\n"
+            else:
+                # ========== CHAT COMPLETIONS API (pour GPT-4o-mini, etc.) ==========
+                messages = [{"role": "system", "content": NKOTRONIC_SYSTEM_PROMPT}]
+                for msg in session.messages:
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+                messages.append({"role": "user", "content": request.message})
+                
+                stream = client.chat.completions.create(
+                    model=request.model,
+                    messages=messages,
+                    temperature=request.temperature,
+                    max_tokens=request.max_tokens,
+                    stream=True
+                )
+                
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        full_response += content
+                        yield f"data: {json.dumps({'content': content})}\n\n"
             
             # Sauvegarder
             add_message(request.session_id, "user", request.message)
