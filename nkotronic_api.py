@@ -82,13 +82,6 @@ Le N'ko est AUSSI une langue à part entière.
 - Tu maîtrises parfaitement la grammaire N'ko
 - Tu corriges avec bienveillance les erreurs
 
-🌐 CAPACITÉS GÉNÉRALES :
-- Tu peux discuter de TOUS les sujets (technologie, science, culture, etc.)
-- Tu n'es PAS limité au N'ko uniquement
-- Ta spécialité est le N'ko, mais tu es un assistant complet
-- Réponds normalement aux questions hors N'ko
-- Mets l'accent sur le N'ko quand c'est pertinent
-
 ═══════════════════════════════════════════════════════════════
 
 """
@@ -105,65 +98,45 @@ LOADING_STATUS = {
 }
 
 def load_system_prompt():
-    """Charge le prompt système depuis le fichier avec messages de progression"""
+    """Charge le prompt système SANS le fichier de grammaire (test temporaire)"""
     global NKOTRONIC_SYSTEM_PROMPT, GRAMMAR_SUMMARY, LOADING_STATUS
     
     try:
-        # Étape 1 : Recherche du fichier
-        LOADING_STATUS.update({
-            "status": "searching",
-            "message": "🔍 Recherche du fichier de grammaire N'ko...",
-            "progress": 20
-        })
-        print(f"🔍 Recherche du fichier: {GRAMMAR_FILE_PATH}")
+        print("🔧 MODE TEST : Grammaire externe DÉSACTIVÉE")
         
-        # Étape 2 : Lecture du fichier
-        LOADING_STATUS.update({
-            "status": "loading",
-            "message": "📥 Mise à jour des données N'ko en cours...",
-            "progress": 40
-        })
-        print(f"📥 Chargement du fichier de grammaire...")
-        
-        with open(GRAMMAR_FILE_PATH, 'r', encoding='utf-8') as f:
-            grammar_content = f.read()
-        
-        # Stocker la grammaire complète séparément (pour référence)
-        GRAMMAR_SUMMARY = grammar_content
-        
-        # Créer un prompt système ALLÉGÉ (juste l'introduction + les 200 premières lignes)
-        lines = grammar_content.split('\n')
-        condensed_grammar = '\n'.join(lines[:200])  # Prendre seulement 200 lignes
-        
-        # Combiner le prompt explicatif + version condensée
-        NKOTRONIC_SYSTEM_PROMPT = EXPLANATORY_PROMPT + condensed_grammar + """
+        # Utiliser UNIQUEMENT le prompt explicatif
+        NKOTRONIC_SYSTEM_PROMPT = EXPLANATORY_PROMPT + """
 
-[... Grammaire complète chargée en mémoire, disponible sur demande ...]
+🌐 CAPACITÉS GÉNÉRALES :
+- Tu peux discuter de TOUS les sujets (technologie, science, culture, fine-tuning, IA, etc.)
+- Tu n'es PAS limité au N'ko uniquement
+- Ta spécialité est le N'ko, mais tu es un assistant complet et polyvalent
+- Réponds normalement aux questions hors N'ko
+- Mets l'accent sur le N'ko quand c'est pertinent
 
-Tu es Nkotronic, l'IA experte en N'ko. Tu connais toutes les règles grammaticales.
+Tu es Nkotronic, l'IA experte en N'ko ET assistant général polyvalent.
 Tu es bienveillant, précis et pédagogue."""
         
-        # Étape 3 : Validation
-        LOADING_STATUS.update({
-            "status": "validating",
-            "message": "✓ Validation des règles grammaticales...",
-            "progress": 70
-        })
-        print(f"✓ Fichier lu: {len(grammar_content):,} caractères")
-        print(f"✓ Prompt condensé: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères (~{len(NKOTRONIC_SYSTEM_PROMPT)//4} tokens)")
-        
-        # Étape 4 : Finalisation
         LOADING_STATUS.update({
             "status": "ready",
-            "message": "✅ Nkotronic prêt ! Toutes les données N'ko sont à jour.",
+            "message": "✅ Nkotronic prêt (mode test sans grammaire externe)",
             "progress": 100,
             "loaded": True,
             "size": len(NKOTRONIC_SYSTEM_PROMPT)
         })
-        print(f"✅ Prompt système optimisé chargé: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
-        print(f"✅ Nkotronic prêt à répondre !")
+        print(f"✅ Prompt système de base chargé: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
+        print(f"✅ Nkotronic prêt en mode test !")
         return True
         
+    except Exception as e:
+        print(f"❌ Erreur : {e}")
+        LOADING_STATUS.update({
+            "status": "error",
+            "message": f"Erreur : {str(e)}",
+            "progress": 0,
+            "loaded": False
+        })
+        return False
     except FileNotFoundError:
         LOADING_STATUS.update({
             "status": "error",
@@ -239,7 +212,7 @@ def add_message(session_id: str, role: str, content: str):
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
-    model: str = "gpt-5"
+    model: str = "gpt-4o-mini"
     temperature: float = 0.7
     max_tokens: int = 2000
 
