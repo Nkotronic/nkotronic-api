@@ -98,14 +98,36 @@ LOADING_STATUS = {
 }
 
 def load_system_prompt():
-    """Charge le prompt système SANS le fichier de grammaire (test temporaire)"""
+    """Charge le prompt système depuis le fichier avec la grammaire COMPLÈTE"""
     global NKOTRONIC_SYSTEM_PROMPT, GRAMMAR_SUMMARY, LOADING_STATUS
     
     try:
-        print("🔧 MODE TEST : Grammaire externe DÉSACTIVÉE")
+        # Étape 1 : Recherche du fichier
+        LOADING_STATUS.update({
+            "status": "searching",
+            "message": "🔍 Recherche du fichier de grammaire N'ko...",
+            "progress": 20
+        })
+        print(f"🔍 Recherche du fichier: {GRAMMAR_FILE_PATH}")
         
-        # Utiliser UNIQUEMENT le prompt explicatif
-        NKOTRONIC_SYSTEM_PROMPT = EXPLANATORY_PROMPT + """
+        # Étape 2 : Lecture du fichier
+        LOADING_STATUS.update({
+            "status": "loading",
+            "message": "📥 Chargement de la grammaire N'ko complète...",
+            "progress": 40
+        })
+        print(f"📥 Chargement du fichier de grammaire...")
+        
+        with open(GRAMMAR_FILE_PATH, 'r', encoding='utf-8') as f:
+            grammar_content = f.read()
+        
+        # Stocker la grammaire complète
+        GRAMMAR_SUMMARY = grammar_content
+        
+        # ✅ UTILISER LA GRAMMAIRE COMPLÈTE (pas juste 200 lignes !)
+        NKOTRONIC_SYSTEM_PROMPT = EXPLANATORY_PROMPT + "\n\n" + grammar_content + """
+
+═══════════════════════════════════════════════════════════════
 
 🌐 CAPACITÉS GÉNÉRALES :
 - Tu peux discuter de TOUS les sujets (technologie, science, culture, fine-tuning, IA, etc.)
@@ -115,17 +137,28 @@ def load_system_prompt():
 - Mets l'accent sur le N'ko quand c'est pertinent
 
 Tu es Nkotronic, l'IA experte en N'ko ET assistant général polyvalent.
+Tu maîtrises TOUTE la grammaire N'ko qui t'a été fournie.
 Tu es bienveillant, précis et pédagogue."""
         
+        # Étape 3 : Validation
+        LOADING_STATUS.update({
+            "status": "validating",
+            "message": "✓ Validation de la grammaire complète...",
+            "progress": 70
+        })
+        print(f"✓ Fichier lu: {len(grammar_content):,} caractères")
+        print(f"✓ Prompt COMPLET: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères (~{len(NKOTRONIC_SYSTEM_PROMPT)//4} tokens)")
+        
+        # Étape 4 : Finalisation
         LOADING_STATUS.update({
             "status": "ready",
-            "message": "✅ Nkotronic prêt (mode test sans grammaire externe)",
+            "message": "✅ Nkotronic prêt avec grammaire complète !",
             "progress": 100,
             "loaded": True,
             "size": len(NKOTRONIC_SYSTEM_PROMPT)
         })
-        print(f"✅ Prompt système de base chargé: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
-        print(f"✅ Nkotronic prêt en mode test !")
+        print(f"✅ Prompt système COMPLET chargé: {len(NKOTRONIC_SYSTEM_PROMPT):,} caractères")
+        print(f"✅ Nkotronic prêt avec TOUTE la grammaire !")
         return True
         
     except Exception as e:
