@@ -232,7 +232,7 @@ def add_message(session_id: str, role: str, content: str):
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
-    model: str = "gpt-5-mini"
+    model: str = "gpt-5"
     temperature: float = 0.7
     max_tokens: int = 2000
 
