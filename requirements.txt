@@ -29,3 +29,8 @@ python-dotenv==1.0.1
 # 
 # ÉCONOMIE TOTALE: ~1.3 GB de RAM ! 🎉
 # ═══════════════════════════════════════════════════════════
+
+google-generativeai
+fastapi
+uvicorn
+python-dotenv
