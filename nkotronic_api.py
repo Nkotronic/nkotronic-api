@@ -1,6 +1,10 @@
 """
 ═══════════════════════════════════════════════════════════════════
-NKOTRONIC BACKEND - VERSION CORRIGÉE (SYNTAX FIX)
+NKOTRONIC BACKEND - VERSION FÉVRIER 2026
+═══════════════════════════════════════════════════════════════════
+✅ Modèle : gemini-3-flash-preview (Dernière version stable preview)
+✅ Correction SyntaxError SSE
+✅ Gestion de session robuste
 ═══════════════════════════════════════════════════════════════════
 """
 
@@ -31,6 +35,7 @@ LOADING_STATUS = {
     "grammar_load_time": None
 }
 
+# Message système pour l'assistant N'ko
 SYSTEM_MESSAGE = "Alu ni djö ! Je suis Nkotronic, votre assistant du N'ko. Que puis-je faire pour vous ?"
 
 # ═══════════════════════════════════════════════════════════════════
@@ -38,7 +43,8 @@ SYSTEM_MESSAGE = "Alu ni djö ! Je suis Nkotronic, votre assistant du N'ko. Que 
 # ═══════════════════════════════════════════════════════════════════
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY or "DUMMY_KEY") # Évite crash au boot si clé absente
+# Initialisation sécurisée
+genai.configure(api_key=GEMINI_API_KEY if GEMINI_API_KEY else "DUMMY_KEY")
 
 safety_settings = [
     {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
@@ -61,7 +67,7 @@ class SessionData(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
-    model: str = "gemini-2.0-flash"  # Note: gemini-2.5 n'existe pas encore, 2.0 est la plus récente
+    model: str = "gemini-3-flash-preview"  # ✨ MISE À JOUR VERS GEMINI 3
     temperature: float = 0.7
     max_tokens: int = 4000
 
@@ -69,7 +75,7 @@ class ChatRequest(BaseModel):
 # FASTAPI APP
 # ═══════════════════════════════════════════════════════════════════
 
-app = FastAPI(title="Nkotronic API", version="2.0.0")
+app = FastAPI(title="Nkotronic API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -88,13 +94,14 @@ def cleanup_old_sessions():
     to_delete = [sid for sid, s in sessions.items() if (now - s.last_activity) > timedelta(hours=24)]
     for sid in to_delete:
         del sessions[sid]
-        logger.info(f"🗑️ Session supprimée: {sid}")
+        logger.info(f"🗑️ Session expirée supprimée: {sid}")
 
 def get_session(session_id: str, initialize: bool = False) -> SessionData:
     cleanup_old_sessions()
     if session_id not in sessions:
         if not initialize:
             raise HTTPException(status_code=404, detail=f"Session {session_id} introuvable")
+        
         sessions[session_id] = SessionData(
             session_id=session_id,
             history=[
@@ -105,6 +112,7 @@ def get_session(session_id: str, initialize: bool = False) -> SessionData:
             last_activity=datetime.now(),
             message_count=0
         )
+        logger.info(f"✨ Nouvelle session: {session_id}")
     return sessions[session_id]
 
 # ═══════════════════════════════════════════════════════════════════
@@ -115,6 +123,8 @@ def get_session(session_id: str, initialize: bool = False) -> SessionData:
 async def root():
     return {
         "service": "Nkotronic API",
+        "version": "3.0.0",
+        "model": "gemini-3-flash-preview",
         "uptime_seconds": (datetime.now() - SERVER_START_TIME).total_seconds(),
         "active_sessions": len(sessions)
     }
@@ -122,34 +132,39 @@ async def root():
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     """
-    ENDPOINT CORRIGÉ : Le 'yield' est uniquement dans la sous-fonction generate()
+    Endpoint de chat en streaming SSE corrigé.
     """
     
     async def generate():
         global FIRST_REQUEST
         
-        # 1. Vérification Clé API (dans le flux)
+        # Vérification clé API au début du flux
         if not GEMINI_API_KEY:
-            yield f"data: {json.dumps({'error': 'GEMINI_API_KEY manquante sur le serveur'})}\n\n"
+            logger.error("❌ Clé API manquante")
+            yield f"data: {json.dumps({'error': 'Configuration serveur : Clé API manquante'})}\n\n"
             return
 
         try:
-            # 2. Détection Cold Start
+            # Détection Cold Start (Render)
             uptime = (datetime.now() - SERVER_START_TIME).total_seconds()
             if FIRST_REQUEST and uptime < 60:
-                yield f"data: {json.dumps({'cold_start': True, 'message': 'Réveil du serveur...'})}\n\n"
+                yield f"data: {json.dumps({'cold_start': True, 'message': 'Réveil des moteurs Nkotronic...'})}\n\n"
                 FIRST_REQUEST = False
 
-            # 3. Gestion Session
+            # Récupération de la session
             session = get_session(request.session_id, initialize=True)
+            
+            # Ajout du message utilisateur
             session.history.append({"role": "user", "parts": [{"text": request.message}]})
 
-            # 4. Appel Gemini
+            # Initialisation du modèle Gemini 3
             model = genai.GenerativeModel(
                 model_name=request.model,
                 safety_settings=safety_settings
             )
 
+            # Appel API en streaming
+            logger.info(f"🤖 Appel Gemini 3 - Session: {request.session_id}")
             response = model.generate_content(
                 session.history,
                 generation_config=genai.types.GenerationConfig(
@@ -165,15 +180,16 @@ async def chat_stream(request: ChatRequest):
                     full_response += chunk.text
                     yield f"data: {json.dumps({'content': chunk.text})}\n\n"
 
-            # 5. Sauvegarde Historique
+            # Mise à jour de l'historique avec la réponse complète
             session.history.append({"role": "model", "parts": [{"text": full_response}]})
             session.last_activity = datetime.now()
             session.message_count += 1
             
+            # Signal de fin de flux
             yield f"data: {json.dumps({'done': True, 'message_count': session.message_count})}\n\n"
 
         except Exception as e:
-            logger.error(f"❌ Erreur Stream: {str(e)}")
+            logger.error(f"❌ Erreur pendant le stream: {str(e)}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(
@@ -186,15 +202,19 @@ async def chat_stream(request: ChatRequest):
         }
     )
 
-# Les autres endpoints (health, loading-status, etc.) restent identiques
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "uptime": (datetime.now() - SERVER_START_TIME).total_seconds()}
+    return {
+        "status": "healthy",
+        "model": "gemini-3-flash-preview",
+        "active_sessions": len(sessions)
+    }
 
 @app.on_event("startup")
 async def startup_event():
     LOADING_STATUS["grammar_loaded"] = True
-    logger.info("🚀 NKOTRONIC API READY")
+    LOADING_STATUS["grammar_load_time"] = datetime.now().isoformat()
+    logger.info("🚀 NKOTRONIC API v3 DÉMARRÉE SUR GEMINI 3")
 
 if __name__ == "__main__":
     import uvicorn
