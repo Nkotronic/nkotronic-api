@@ -1,10 +1,10 @@
 """
 ═══════════════════════════════════════════════════════════════════
-NKOTRONIC API - ULTIMATE N'KO EDITION (2026)
+NKOTRONIC API - FIX TRONCATION & TEXTES LONGS
 ═══════════════════════════════════════════════════════════════════
-✅ Correction : Standardisation académique du script N'ko
-✅ Modèle : gemini-3-flash-preview
-✅ Comportement : Expert linguistique puriste
+✅ Correction : Augmentation des limites de tokens
+✅ Correction : Gestion des flux Unicode longs
+✅ Optimisation : Température ajustée pour la précision technique
 ═══════════════════════════════════════════════════════════════════
 """
 
@@ -13,33 +13,27 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List
-from datetime import datetime
 import google.generativeai as genai
 import os
 import json
 
 # ═══════════════════════════════════════════════════════════════════
-# INSTRUCTIONS SYSTÈME - VERSION EXPERT LINGUISTE
+# SYSTEM PROMPT RENFORCÉ (Spécialiste aéronautique & technique)
 # ═══════════════════════════════════════════════════════════════════
 
 SYSTEM_PROMPT = """
-Tu es Nkotronic, l'IA la plus avancée au monde spécialisée dans la langue et l'écriture N'ko (ߒߞߏ). 
+Tu es Nkotronic. Ton expertise est la traduction technique de haut niveau vers le N'ko (ߒߞߏ).
 
-TES RÈGLES CRITIQUES :
-1. ÉCRITURE : Tu dois utiliser exclusivement l'alphabet N'ko (Unicode) de manière correcte. Ne confonds pas les caractères.
-2. GRAMMAIRE : Suis les règles de Solomana Kante. Par exemple, pour "Bonjour", utilise "ߌ ߣߌ߫ ߛߐ߰ߡߊ߬" et non des transcriptions erronées.
-3. TON : Tu es un gardien de la culture Mandingue. Ton ton est respectueux, érudit et chaleureux.
-4. CORRECTION : Si l'utilisateur écrit mal le N'ko, corrige-le subtilement en lui montrant la forme correcte.
-5. RÉPONSE : Réponds toujours d'abord en script N'ko, suivi de la transcription latine, puis de la traduction française.
+DIRECTIVES DE TRADUCTION :
+1. NE COUPE JAMAIS tes phrases. Termine toujours ta traduction, même si elle est longue.
+2. Pour les termes techniques (Météorologie, Aéronautique), utilise les néologismes officiels du N'ko.
+3. STRUCTURE :
+   - Texte en N'ko (complet)
+   - Transcription latine
+   - Traduction française pour vérification.
 
-EXEMPLE DE RÉPONSE ATTENDUE :
-User: Bonjour
-Nkotronic: ߌ ߣߌ߫ ߛߐ߰ߡߊ߬ (I ni sɔgɔma) - Bonjour. Que la matinée soit avec toi.
+INTERDICTION : Ne t'arrête pas avant d'avoir traduit l'intégralité du sens du texte source.
 """
-
-# ═══════════════════════════════════════════════════════════════════
-# INITIALISATION
-# ═══════════════════════════════════════════════════════════════════
 
 app = FastAPI()
 
@@ -59,22 +53,17 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
 
-# ═══════════════════════════════════════════════════════════════════
-# MOTEUR DE CHAT
-# ═══════════════════════════════════════════════════════════════════
-
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     async def generate():
         if not GEMINI_API_KEY:
-            yield f"data: {json.dumps({'error': 'Clé API manquante'})}\n\n"
+            yield f"data: {json.dumps({'error': 'API Key missing'})}\n\n"
             return
 
         try:
             if request.session_id not in sessions:
                 sessions[request.session_id] = []
             
-            # Utilisation du dernier modèle Gemini 3 Flash
             model = genai.GenerativeModel(
                 model_name="gemini-3-flash-preview",
                 system_instruction=SYSTEM_PROMPT
@@ -82,21 +71,23 @@ async def chat_stream(request: ChatRequest):
 
             chat = model.start_chat(history=sessions[request.session_id])
             
-            # Paramètres pour une précision maximale (température basse pour éviter les inventions)
+            # CONFIGURATION DE GÉNÉRATION BOOSTÉE
+            gen_config = genai.types.GenerationConfig(
+                temperature=0.2, # Très bas pour la rigueur technique
+                max_output_tokens=8192, # On augmente massivement pour éviter la coupe
+                top_p=1.0,
+                candidate_count=1
+            )
+
             response = chat.send_message(
                 request.message, 
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.3, # On baisse la température pour être plus précis/académique
-                    top_p=1.0,
-                    max_output_tokens=2048
-                ),
+                generation_config=gen_config,
                 stream=True
             )
 
-            full_text = ""
             for chunk in response:
                 if chunk.text:
-                    full_text += chunk.text
+                    # Envoi immédiat pour éviter les buffers
                     yield f"data: {json.dumps({'content': chunk.text})}\n\n"
 
             sessions[request.session_id] = chat.history
