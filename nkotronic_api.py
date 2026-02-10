@@ -1,16 +1,12 @@
 """
 ═══════════════════════════════════════════════════════════════════
-NKOTRONIC API - VERSION ULTRA-OPTIMISÉE
+NKOTRONIC API - VERSION CORRIGÉE POUR N'KO
 ═══════════════════════════════════════════════════════════════════
-✅ Correction : Augmentation des limites de tokens
-✅ Correction : Gestion des flux Unicode longs
-✅ Optimisation : Température ajustée pour la précision technique
-✅ NOUVELLE OPTIMISATION: Historique tronqué intelligemment
-✅ NOUVELLE OPTIMISATION: Cleanup périodique des sessions
-✅ NOUVELLE OPTIMISATION: Logging optimisé (WARNING par défaut)
-✅ NOUVELLE OPTIMISATION: Timeout de 30s sur requêtes Gemini
-✅ NOUVELLE OPTIMISATION: max_tokens réduit à 2048 pour vitesse
-✅ NOUVELLE OPTIMISATION: Suppression messages bienvenue après 1ère interaction
+✅ FIX: max_tokens augmenté à 6000 pour textes N'ko complets
+✅ FIX: temperature augmentée à 0.5 pour réponses plus riches
+✅ FIX: timeout augmenté à 60s pour longues réponses
+✅ FIX: historique augmenté à 20 messages pour meilleur contexte
+✅ MAINTENU: Cleanup périodique, logging optimisé
 ═══════════════════════════════════════════════════════════════════
 """
 
@@ -27,7 +23,7 @@ import logging
 import asyncio
 
 # ═══════════════════════════════════════════════════════════════════
-# CONFIGURATION DU LOGGING - ✅ OPTIMISATION 3: WARNING par défaut
+# CONFIGURATION DU LOGGING
 # ═══════════════════════════════════════════════════════════════════
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "WARNING")
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
@@ -37,19 +33,18 @@ logger = logging.getLogger(__name__)
 # VARIABLES GLOBALES
 # ═══════════════════════════════════════════════════════════════════
 
-# ✅ OPTIMISATION 2: Compteur pour cleanup périodique
 REQUEST_COUNTER = 0
-CLEANUP_INTERVAL = 100  # Cleanup toutes les 100 requêtes
+CLEANUP_INTERVAL = 100
 SERVER_START_TIME = datetime.now()
 
-# ✅ OPTIMISATION 1: Limite d'historique pour éviter ralentissements
-MAX_HISTORY_MESSAGES = 10  # Limiter à 10 messages (5 échanges)
+# ✅ FIX: Historique augmenté à 20 pour meilleur contexte
+MAX_HISTORY_MESSAGES = 20  # Au lieu de 10
 
-# ✅ OPTIMISATION 4: Timeout pour les requêtes Gemini
-GEMINI_TIMEOUT = 30  # 30 secondes max
+# ✅ FIX: Timeout augmenté pour les longues réponses N'ko
+GEMINI_TIMEOUT = 60  # Au lieu de 30 secondes
 
 # ═══════════════════════════════════════════════════════════════════
-# SYSTEM PROMPT RENFORCÉ (INCHANGÉ comme demandé)
+# SYSTEM PROMPT (INCHANGÉ)
 # ═══════════════════════════════════════════════════════════════════
 
 SYSTEM_PROMPT = """
@@ -68,7 +63,7 @@ COMPORTEMENT :
 - INTÉGRITÉ : Ne coupe jamais tes phrases, même pour des textes longs.
 """
 
-app = FastAPI(title="Nkotronic API Optimized", version="3.0.0")
+app = FastAPI(title="Nkotronic API - N'ko Optimized", version="3.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,7 +75,6 @@ app.add_middleware(
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY if GEMINI_API_KEY else "DUMMY_KEY")
 
-# ✅ OPTIMISATION 6: Structure de session enrichie
 class SessionData:
     def __init__(self):
         self.history: List = []
@@ -100,9 +94,7 @@ class ChatRequest(BaseModel):
 # ═══════════════════════════════════════════════════════════════════
 
 def cleanup_old_sessions():
-    """
-    ✅ OPTIMISATION 2: Nettoie les sessions inactives (>24h)
-    """
+    """Nettoie les sessions inactives (>24h)"""
     now = datetime.now()
     to_delete = []
     
@@ -116,9 +108,7 @@ def cleanup_old_sessions():
             logger.info(f"🗑️  Session supprimée: {session_id}")
 
 def should_cleanup() -> bool:
-    """
-    ✅ OPTIMISATION 2: Cleanup périodique au lieu de systématique
-    """
+    """Cleanup périodique"""
     global REQUEST_COUNTER
     REQUEST_COUNTER += 1
     
@@ -130,34 +120,23 @@ def should_cleanup() -> bool:
 
 def truncate_history(history: List, max_messages: int = MAX_HISTORY_MESSAGES) -> List:
     """
-    ✅ OPTIMISATION 1: Tronque l'historique pour garder seulement les N derniers messages
-    
-    Args:
-        history: L'historique complet Gemini
-        max_messages: Nombre de messages à conserver
-    
-    Returns:
-        Historique tronqué
+    ✅ Tronque l'historique intelligemment
+    Garde plus de messages (20 au lieu de 10) pour meilleur contexte
     """
     if len(history) <= max_messages:
         return history
     
-    # Garder les N derniers messages
     truncated = history[-max_messages:]
     
     if LOG_LEVEL == "INFO":
-        logger.info(f"✂️  Historique tronqué: {len(history)} → {len(truncated)} messages")
+        logger.info(f"✂️  Historique: {len(history)} → {len(truncated)} messages")
     
     return truncated
 
 def remove_initial_messages(history: List) -> List:
-    """
-    ✅ OPTIMISATION 6: Supprime les messages initiaux après la première interaction
-    Pour économiser des tokens
-    """
-    # Si l'historique a plus de 2 messages, on peut supprimer les premiers
+    """Supprime les messages initiaux après la première interaction"""
     if len(history) > 2:
-        return history[2:]  # Garde tout sauf les 2 premiers
+        return history[2:]
     return history
 
 # ═══════════════════════════════════════════════════════════════════
@@ -168,21 +147,20 @@ def remove_initial_messages(history: List) -> List:
 async def root():
     """Endpoint racine avec stats"""
     return {
-        "service": "Nkotronic API Optimized",
-        "version": "3.0.0",
+        "service": "Nkotronic API - N'ko Optimized",
+        "version": "3.1.0",
         "status": "running",
         "model": "gemini-3-flash-preview",
         "uptime_seconds": (datetime.now() - SERVER_START_TIME).total_seconds(),
         "active_sessions": len(sessions),
         "total_requests": REQUEST_COUNTER,
         "optimizations": [
-            f"Historique limité à {MAX_HISTORY_MESSAGES} messages",
-            f"Cleanup périodique tous les {CLEANUP_INTERVAL} requêtes",
-            f"Logging en {LOG_LEVEL}",
-            f"Timeout: {GEMINI_TIMEOUT}s",
-            "max_tokens: 2048 (optimisé)",
-            "temperature: 0.2 (maintenue pour précision)",
-            "Suppression messages initiaux après 1ère interaction"
+            f"Historique: {MAX_HISTORY_MESSAGES} messages (augmenté pour contexte)",
+            f"Cleanup: tous les {CLEANUP_INTERVAL} requêtes",
+            f"Logging: {LOG_LEVEL}",
+            f"Timeout: {GEMINI_TIMEOUT}s (augmenté pour N'ko)",
+            "max_tokens: 6000 (optimisé pour textes N'ko complets)",
+            "temperature: 0.5 (équilibre précision/richesse)",
         ]
     }
 
@@ -194,7 +172,9 @@ async def health_check():
         "uptime_seconds": (datetime.now() - SERVER_START_TIME).total_seconds(),
         "active_sessions": len(sessions),
         "total_requests": REQUEST_COUNTER,
-        "max_history": MAX_HISTORY_MESSAGES
+        "max_history": MAX_HISTORY_MESSAGES,
+        "max_tokens": 6000,
+        "timeout": GEMINI_TIMEOUT
     }
 
 @app.get("/sessions")
@@ -226,7 +206,7 @@ async def delete_session(session_id: str):
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     """
-    ✅ Endpoint de chat ultra-optimisé avec toutes les corrections
+    ✅ Endpoint optimisé pour textes N'ko complets
     """
     async def generate():
         if not GEMINI_API_KEY:
@@ -234,7 +214,7 @@ async def chat_stream(request: ChatRequest):
             return
 
         try:
-            # ✅ OPTIMISATION 2: Cleanup périodique
+            # Cleanup périodique
             if should_cleanup():
                 cleanup_old_sessions()
             
@@ -246,46 +226,44 @@ async def chat_stream(request: ChatRequest):
             
             session = sessions[request.session_id]
             
-            # ✅ OPTIMISATION 6: Supprimer messages initiaux après 1ère interaction
+            # Supprimer messages initiaux après 1ère interaction
             if not session.welcome_shown and session.message_count > 0:
                 session.history = remove_initial_messages(session.history)
                 session.welcome_shown = True
                 if LOG_LEVEL == "INFO":
                     logger.info("👋 Messages initiaux supprimés")
             
-            # ✅ OPTIMISATION 1: Tronquer l'historique AVANT d'ajouter le nouveau message
+            # Tronquer l'historique AVANT d'ajouter le nouveau message
             if LOG_LEVEL == "INFO":
                 logger.info(f"📊 Historique avant: {len(session.history)} messages")
             
             session.history = truncate_history(session.history, MAX_HISTORY_MESSAGES)
             
             if LOG_LEVEL == "INFO":
-                logger.info(f"📊 Historique après troncature: {len(session.history)} messages")
+                logger.info(f"📊 Historique après: {len(session.history)} messages")
             
-            # Créer le modèle avec system instruction
+            # Créer le modèle
             model = genai.GenerativeModel(
                 model_name="gemini-3-flash-preview",
                 system_instruction=SYSTEM_PROMPT
             )
 
-            # Démarrer le chat avec l'historique tronqué
+            # Démarrer le chat
             chat = model.start_chat(history=session.history)
             
-            # ✅ OPTIMISATION 5: Configuration optimisée
-            # - max_output_tokens réduit de 8192 à 2048 pour vitesse
-            # - temperature maintenue à 0.2 pour précision (comme dans l'original)
+            # ✅ CONFIGURATION OPTIMISÉE POUR N'KO
             gen_config = genai.types.GenerationConfig(
-                temperature=0.2,  # Maintenue pour précision technique
-                max_output_tokens=2048,  # ✅ Réduit de 8192 à 2048 pour vitesse
+                temperature=0.5,  # ✅ Augmenté de 0.2 à 0.5 pour réponses plus riches
+                max_output_tokens=6000,  # ✅ Augmenté de 2048 à 6000 pour textes N'ko complets
                 top_p=1.0,
                 candidate_count=1
             )
 
             if LOG_LEVEL == "INFO":
-                logger.info(f"🤖 Génération (historique: {len(session.history)}, max_tokens: 2048)...")
+                logger.info(f"🤖 Génération (historique: {len(session.history)}, max_tokens: 6000, temp: 0.5)...")
 
             try:
-                # ✅ OPTIMISATION 4: Wrapper avec timeout
+                # ✅ Timeout augmenté à 60s
                 response = chat.send_message(
                     request.message, 
                     generation_config=gen_config,
@@ -293,21 +271,26 @@ async def chat_stream(request: ChatRequest):
                     request_options={"timeout": GEMINI_TIMEOUT}
                 )
 
+                chunk_count = 0
                 for chunk in response:
                     if chunk.text:
-                        # Envoi immédiat pour éviter les buffers
+                        chunk_count += 1
+                        # Envoi immédiat
                         yield f"data: {json.dumps({'content': chunk.text})}\n\n"
+
+                if LOG_LEVEL == "INFO":
+                    logger.info(f"📦 {chunk_count} chunks envoyés")
 
             except asyncio.TimeoutError:
                 logger.error(f"⏱️  Timeout après {GEMINI_TIMEOUT}s")
                 yield f"data: {json.dumps({'error': f'Timeout après {GEMINI_TIMEOUT}s'})}\n\n"
                 return
 
-            # ✅ OPTIMISATION 1: Sauvegarder et tronquer l'historique après réponse
+            # Sauvegarder et tronquer l'historique
             session.history = chat.history
             session.history = truncate_history(session.history, MAX_HISTORY_MESSAGES)
             
-            # Mettre à jour les métadonnées de session
+            # Mettre à jour session
             session.last_activity = datetime.now()
             session.message_count += 1
             
@@ -336,28 +319,28 @@ async def chat_stream(request: ChatRequest):
 
 @app.on_event("startup")
 async def startup():
-    logger.warning("=" * 60)
-    logger.warning("🚀 NKOTRONIC API - VERSION ULTRA-OPTIMISÉE")
-    logger.warning("=" * 60)
+    logger.warning("=" * 70)
+    logger.warning("🚀 NKOTRONIC API - VERSION OPTIMISÉE POUR N'KO")
+    logger.warning("=" * 70)
     logger.warning(f"📅 Démarrage: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.warning(f"🤖 Modèle: gemini-3-flash-preview")
     logger.warning(f"🔑 API Key: {'✅ OK' if GEMINI_API_KEY else '❌ MANQUANTE'}")
     logger.warning(f"📏 Historique max: {MAX_HISTORY_MESSAGES} messages")
-    logger.warning(f"🎯 max_tokens: 2048 (optimisé de 8192)")
-    logger.warning(f"🌡️  temperature: 0.2 (maintenue pour précision)")
+    logger.warning(f"🎯 max_tokens: 6000 (optimisé pour N'ko)")
+    logger.warning(f"🌡️  temperature: 0.5 (équilibre précision/richesse)")
     logger.warning(f"⏱️  timeout: {GEMINI_TIMEOUT}s")
     logger.warning(f"🧹 cleanup: tous les {CLEANUP_INTERVAL} requêtes")
     logger.warning(f"📊 log_level: {LOG_LEVEL}")
-    logger.warning("=" * 60)
+    logger.warning("=" * 70)
 
 @app.on_event("shutdown")
 async def shutdown():
-    logger.warning("=" * 60)
+    logger.warning("=" * 70)
     logger.warning("🛑 ARRÊT")
     logger.warning(f"📊 Sessions: {len(sessions)}")
     logger.warning(f"📨 Requêtes: {REQUEST_COUNTER}")
     logger.warning(f"⏱️  Uptime: {(datetime.now() - SERVER_START_TIME).total_seconds():.0f}s")
-    logger.warning("=" * 60)
+    logger.warning("=" * 70)
 
 if __name__ == "__main__":
     import uvicorn
